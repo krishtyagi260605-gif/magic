@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Magic Assistant</title>
+  <link rel="icon" type="image/svg+xml" href="/static/magic-icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  
+  <style>
+    :root {
+      --bg: #0f172a;
+      --glass: rgba(30, 41, 59, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --accent: #a855f7;
+      --accent-glow: rgba(168, 85, 247, 0.4);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --font-main: 'Inter', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+
+    body {
+      background: radial-gradient(circle at top left, #1e1b4b, #0f172a);
+      color: var(--text);
+      font-family: var(--font-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 280px;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--glass-border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      transition: all 0.3s ease;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.25rem;
+      margin-bottom: 32px;
+      letter-spacing: -0.025em;
+      color: #fff;
+    }
+    .brand img { width: 32px; height: 32px; filter: drop-shadow(0 0 8px var(--accent-glow)); }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+    .nav-btn.active {
+      background: rgba(168, 85, 247, 0.15);
+      border-color: rgba(168, 85, 247, 0.3);
+      color: var(--accent);
+    }
+    .nav-btn.primary {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: #fff;
+      margin-bottom: 32px;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.3);
+    }
+    .nav-btn.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(168, 85, 247, 0.4);
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 20px;
+      scroll-behavior: smooth;
+    }
+    .chat-scroll::-webkit-scrollbar { width: 6px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+    .chat-container {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* MESSAGES */
+    .msg {
+      display: flex;
+      gap: 20px;
+      animation: msgReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes msgReveal {
+      from { opacity: 0; transform: translateY(20px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .avatar.user { background: #334155; color: #fff; }
+    .avatar.ai { 
+      background: linear-gradient(135deg, #7c3aed, #db2777); 
+      color: #fff; 
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .content {
+      flex: 1;
+      font-size: 15.5px;
+      line-height: 1.7;
+      color: #e2e8f0;
+      padding-top: 2px;
+    }
+    .content p { margin-bottom: 16px; }
+    .content pre {
+      background: #020617;
+      padding: 20px;
+      border-radius: 16px;
+      margin: 20px 0;
+      border: 1px solid var(--glass-border);
+      position: relative;
+      overflow-x: auto;
+    }
+    .content code {
+      font-family: 'Fira Code', monospace;
+      font-size: 13.5px;
+      background: rgba(0,0,0,0.4);
+      padding: 2px 6px;
+      border-radius: 6px;
+      color: #e879f9;
+    }
+    .content pre code { background: transparent; padding: 0; color: inherit; }
+
+    /* INPUT AREA */
+    .input-row {
+      padding: 32px 20px 48px;
+    }
+    .input-container {
+      max-width: 800px;
+      margin: 0 auto;
+      position: relative;
+      background: var(--glass);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 8px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-container:focus-within {
+      border-color: rgba(168, 85, 247, 0.5);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 15px var(--accent-glow);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      padding: 16px 20px;
+      font-size: 16px;
+      resize: none;
+      min-height: 24px;
+      max-height: 300px;
+      line-height: 1.5;
+    }
+    textarea::placeholder { color: var(--text-muted); }
+
+    .btn-action {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+      flex-shrink: 0;
+      margin: 4px;
+    }
+    .btn-action:hover:not(:disabled) {
+      transform: scale(1.05);
+      background: #c084fc;
+    }
+    .btn-action:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* HUD / TRACE */
+    .hud {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--glass-border);
+      padding: 8px 16px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      display: none;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    .hud.active { display: flex; }
+    .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; scale: 1; } 50% { opacity: 0.4; scale: 0.8; } 100% { opacity: 1; scale: 1; } }
+
+    /* WELCOME SCREEN */
+    .welcome {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .welcome h1 { font-size: 3rem; margin-bottom: 12px; letter-spacing: -0.05em; font-weight: 800; }
+    .welcome p { font-size: 1.1rem; color: var(--text-muted); max-width: 400px; line-height: 1.6; }
+    .gradient-text { background: linear-gradient(to right, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="brand">
+      <img src="/static/magic-icon.svg" alt="Magic" /> 
+      <span>Magic Assistant</span>
+    </div>
+    
+    <button class="nav-btn primary" onclick="newChat()">
+      <span>+ New Conversation</span>
+    </button>
+    
+    <button class="nav-btn active">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      Chat Mode
+    </button>
+    
+    <button class="nav-btn" onclick="window.location.href='/sisi'">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+      IDE Mode (Sisi)
+    </button>
+
+    <div style="margin-top: auto;">
+      <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; font-size: 11px; color: var(--text-muted);">
+        Local Intelligence Active
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="hud" id="hud">
+      <div class="dot"></div>
+      <span id="hudStatus">Thinking...</span>
+    </div>
+
+    <div class="chat-scroll" id="scrollArea">
+      <div class="chat-container" id="chatMsgs">
+        <div class="welcome" id="welcomeScreen">
+          <div style="margin-bottom: 24px;">
+            <img src="/static/magic-icon.svg" style="width: 80px; height: 80px; filter: drop-shadow(0 0 30px rgba(168, 85, 247, 0.4));" />
+          </div>
+          <h1>Hello, <span class="gradient-text">I'm Magic.</span></h1>
+          <p>Your local AI companion for desktop automation, code generation, and project management.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="input-row">
+      <div class="input-container">
+        <textarea id="chatInput" placeholder="Message Magic..." rows="1"></textarea>
+        <button id="sendBtn" class="btn-action">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let activeSessionId = null;
+    let activeController = null;
+
+    marked.setOptions({
+      highlight: (code, lang) => lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : hljs.highlightAuto(code).value
+    });
+
+    const input = $("chatInput");
+    input.addEventListener("input", () => {
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight, 300) + "px";
+    });
+
+    function newChat() {
+      activeSessionId = null;
+      $("chatMsgs").innerHTML = $("welcomeScreen").outerHTML;
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function renderMsg(role, content) {
+      if ($("welcomeScreen")) $("welcomeScreen").remove();
+      const w = document.createElement("div");
+      w.className = "msg";
+      const isUser = role === "user";
+      const htmlContent = isUser
+        ? `<div style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(content)}</div>`
+        : marked.parse(content);
+      
+      w.innerHTML = `
+        <div class="avatar ${isUser ? 'user' : 'ai'}">${isUser ? 'U' : 'M'}</div>
+        <div class="content">${htmlContent}</div>
+      `;
+      $("chatMsgs").appendChild(w);
+      $("scrollArea").scrollTop = $("scrollArea").scrollHeight;
+      
+      w.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+    }
+
+    async function sendChat() {
+      const text = input.value.trim();
+      if (!text || activeController) return;
+      
+      renderMsg("user", text);
+      input.value = "";
+      input.style.height = "auto";
+      $("sendBtn").disabled = true;
+      $("hud").classList.add("active");
+      $("hudStatus").textContent = "Thinking...";
+
+      const typingEnv = document.createElement("div");
+      typingEnv.className = "msg"; typingEnv.id = "typingInd";
+      typingEnv.innerHTML = `<div class="avatar ai">M</div><div class="content" style="color:var(--text-muted); font-style: italic;">Magic is working...</div>`;
+      $("chatMsgs").appendChild(typingEnv);
+      $("scrollArea").scrollTo({ top: $("scrollArea").scrollHeight, behavior: 'smooth' });
+
+      activeController = new AbortController();
+
+      try {
+        const res = await fetch("/v1/command/stream", {
+          method: "POST", headers: {"Content-Type":"application/json"},
+          signal: activeController.signal,
+          body: JSON.stringify({
+            command: text, session_id: activeSessionId,
+            reasoning_level: "medium",
+            developer_mode: true,
+            app_mode: "magic"
+          })
+        });
+
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        let sseEvent = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
+
+          for (const raw of lines) {
+            const line = raw.replace(/\r$/, "");
+            if (line.startsWith("event: ")) {
+              sseEvent = line.slice(7).trim();
+            } else if (line.startsWith("data: ") && sseEvent) {
+              let d;
+              try { d = JSON.parse(line.slice(6)); } catch { sseEvent = ""; continue; }
+              
+              if (sseEvent === "trace") {
+                $("hudStatus").textContent = d.step || "Processing...";
+                if (d.session_id) activeSessionId = d.session_id;
+              } else if (sseEvent === "final") {
+                if ($("typingInd")) $("typingInd").remove();
+                $("hud").classList.remove("active");
+                renderMsg("assistant", d.final || "");
+              } else if (sseEvent === "error") {
+                if ($("typingInd")) $("typingInd").remove();
+                $("hud").classList.remove("active");
+                renderMsg("assistant", "⚠️ **Error:** " + (d.message || "unknown"));
+              }
+              sseEvent = "";
+            }
+          }
+        }
+      } catch(e) {
+        if ($("typingInd")) $("typingInd").remove();
+        $("hud").classList.remove("active");
+        if (e.name !== 'AbortError') renderMsg("assistant", "⚠️ **Error:** " + e.message);
+      }
+      activeController = null;
+      $("sendBtn").disabled = false;
+    }
+
+    $("sendBtn").onclick = sendChat;
+    input.onkeydown = e => { if ((e.metaKey||e.ctrlKey) && e.key === "Enter") { e.preventDefault(); sendChat(); } };
+  </script>
+</body>
+</html>

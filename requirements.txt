@@ -1,0 +1,29 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+pydantic-settings>=2.2
+python-dotenv>=1.0
+python-multipart>=0.0.9
+openai>=1.40.0
+
+# Agent framework
+langgraph>=0.2.0
+langchain>=0.2.0
+langchain-core>=0.2.0
+
+# LLM providers (choose one via env vars)
+langchain-openai>=0.1.0
+langchain-ollama>=0.2.0
+
+# LlamaIndex — personal memory / RAG
+llama-index-core>=0.10.57
+llama-index-embeddings-openai>=0.1.0
+llama-index-embeddings-ollama>=0.1.0
+
+# Desktop automation (mouse / keyboard)
+pyautogui>=0.9.54
+pyperclip>=1.9.0
+
+# Native window for start_magic.py / start_sisi.py (pywebview)
+pywebview>=5.0
+
