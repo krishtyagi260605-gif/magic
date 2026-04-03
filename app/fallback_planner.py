@@ -187,15 +187,25 @@ def _should_host_request(lower: str) -> bool:
 
 
 def _project_kind_for_request(lower: str) -> str:
+    if "tailwind" in lower and "react" in lower:
+        return "react-tailwind"
+    if "react" in lower:
+        return "react"
     if "fast api" in lower or "fastapi" in lower or ("login" in lower and "user" in lower):
         return "fastapi-auth"
     if any(term in lower for term in ("presentation", "slides", "slide deck", "ppt", "pitch deck")):
         return "slides"
+    if "backend" in lower or "api" in lower or "database" in lower:
+        return "backend"
     if any(term in lower for term in ("document", "report", "notes", "summary doc", "writeup")):
         return "document"
+    if any(term in lower for term in ("csv", "spreadsheet", "excel")):
+        return "csv"
+    if "pdf" in lower:
+        return "pdf"
     if any(term in lower for term in ("image", "poster", "graphic", "logo", "banner", "illustration")):
         return "image"
-    return "website"
+    return "react"
 
 
 def _default_project_name(lower: str, kind: str) -> str:
@@ -205,6 +215,10 @@ def _default_project_name(lower: str, kind: str) -> str:
         return "magic-slide-deck"
     if kind == "document":
         return "magic-document"
+    if kind == "csv":
+        return "magic-spreadsheet"
+    if kind == "pdf":
+        return "magic-pdf-report"
     if kind == "image":
         return "magic-artwork"
     return "magic-project"
@@ -213,13 +227,14 @@ def _default_project_name(lower: str, kind: str) -> str:
 def fallback_reply(command: str) -> str | None:
     lower = command.strip().lower()
     settings = get_settings()
+    provider = settings.llm_provider.lower()
 
     if any(greet in lower for greet in ("hello", "hi", "hey", "what can you do", "who are you")):
         return (
             "I’m Magic, your local Mac assistant. Right now I can chat a bit, open apps and sites, create folders, "
             "read and write project files in your Desktop Magic workspace, scaffold starter websites, "
             "speak text aloud, query indexed notes, and automate desktop actions when needed. "
-            f"For stronger reasoning, I need the local model `{settings.ollama_model}` available in Ollama."
+            f"My current reasoning provider is `{provider}`."
         )
 
     if any(phrase in lower for phrase in ("who made you", "who owns you", "who is your owner", "owner details", "who created you")):
@@ -229,18 +244,18 @@ def fallback_reply(command: str) -> str | None:
         return (
             "Right now I can handle direct local tasks like opening apps, creating folders, scaffolding starter projects in your Desktop Magic workspace, "
             "speaking text, and searching your indexed notes. I also have a multi-step assistant loop ready for deeper reasoning, "
-            "but it depends on the local Ollama model being available."
+            f"and I currently use `{provider}` for that reasoning path."
         )
 
     if lower.startswith("why are you") or lower.startswith("what are you doing"):
         return (
-            "I can explain what I’m doing, but for deeper reasoning-heavy replies I still depend on the local Ollama model. "
-            "Once that model is ready, I’ll be much closer to a full chat assistant."
+            f"I can explain what I’m doing, and for deeper reasoning-heavy replies I currently depend on `{provider}`. "
+            "If a request is simple, I try to skip the slower path and act quickly."
         )
 
     if _is_build_request(lower) and _is_coding_request(lower):
         return (
-            "I can already scaffold and edit local projects on your Desktop, and once the Ollama model is ready I can reason through bigger coding tasks "
+            f"I can already scaffold and edit local projects on your Desktop, and with `{provider}` on the deep path I can reason through bigger coding tasks "
             "much more like a real build assistant."
         )
 
@@ -254,6 +269,31 @@ def fallback_plan(command: str, conversation_history: str = "") -> tuple[list[di
 
     if not text:
         return [_final_step("empty command")], "Type a command first."
+
+    if "whatsapp" in lower and any(word in lower for word in ("send", "type", "message", "say")):
+        contacts = []
+        msg = "Hello"
+        msg_match = re.search(r"(?:say|type|message)\s+['\"](.*?)['\"]", text, re.IGNORECASE)
+        if msg_match: msg = msg_match.group(1)
+        
+        to_match = re.search(r"to\s+([a-zA-Z0-9_ ,]+)", text, re.IGNORECASE)
+        if to_match:
+            raw_contacts = to_match.group(1).split(" and ")
+            for c in raw_contacts:
+                contacts.extend([x.strip() for x in c.split(",") if x.strip()])
+        if not contacts: contacts = ["Unknown"]
+        import json
+        payload = json.dumps({"contacts": contacts, "message": msg})
+        return (
+            [{"tool": "send_whatsapp_messages", "input": payload, "reason": "send whatsapp messages"}, _final_step()],
+            f"I will send '{msg}' to {', '.join(contacts)} on WhatsApp."
+        )
+
+    if "linkedin" in lower and "apply" in lower:
+        return (
+            [{"tool": "linkedin_auto_apply", "input": '{"resume_path": "resume.pdf", "job_title": "Software Engineer"}', "reason": "apply to jobs on LinkedIn"}, _final_step()],
+            "I will automate LinkedIn job applications using your resume."
+        )
 
     if lower in {"again", "do that again", "repeat that", "same again", "try that again"}:
         prior_commands = _recent_user_commands(conversation_history)
@@ -388,41 +428,6 @@ def fallback_plan(command: str, conversation_history: str = "") -> tuple[list[di
             "I can search the web directly for that.",
         )
 
-    if "fast api" in lower or "fastapi" in lower:
-        project_name = _extract_folder_target(text) or _extract_project_name(text) or "magic-fastapi-app"
-        fastapi_prompt = text.replace('"', '\\"')
-        steps = [
-            {
-                "tool": "project_scaffold",
-                "input": (
-                    '{"name": "%s", "kind": "fastapi-auth", "prompt": "%s"}'
-                    % (project_name.replace('"', ""), fastapi_prompt)
-                ),
-                "reason": "create a FastAPI starter with create-user and login flow in the Desktop workspace",
-            },
-        ]
-        if _should_host_request(lower):
-            steps.append(
-                {
-                    "tool": "workspace_run",
-                    "input": (
-                        '{"cwd":"__LAST_PROJECT__","command":"python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8010","detach":true}'
-                    ),
-                    "reason": "start the FastAPI app locally in the background",
-                }
-            )
-        steps.append(
-            {
-                "tool": "final_answer",
-                "input": "",
-                "reason": "fast FastAPI build shortcut complete",
-            }
-        )
-        final_text = "I can create that FastAPI auth starter directly in your Desktop workspace without waiting for a long planning cycle."
-        if _should_host_request(lower):
-            final_text += " I will also start it locally."
-        return (steps, final_text)
-
     if any(word in lower for word in ("create", "make")) and any(word in lower for word in ("folder", "directory")):
         folder_name = _extract_folder_name(text)
         folder_base = _folder_location(text)
@@ -462,7 +467,7 @@ def fallback_plan(command: str, conversation_history: str = "") -> tuple[list[di
                 {"tool": "query_memory", "input": text, "reason": "search indexed files and notes"},
                 _final_step(),
             ],
-            "I’ll answer from your indexed memory if it’s available.",
+            "I'll check your saved knowledge.",
         )
 
     if _is_build_request(lower) and _is_coding_request(lower):
@@ -479,13 +484,15 @@ def fallback_plan(command: str, conversation_history: str = "") -> tuple[list[di
                         text.replace('"', '\\"'),
                     )
                 ),
-                "reason": "create a starter project in the Desktop Magic workspace",
+                "reason": f"create a {project_kind} starter project in the Desktop workspace",
             },
         ]
         if _should_host_request(lower):
             run_payload = (
                 '{"cwd":"__LAST_PROJECT__","command":"python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8010","detach":true}'
                 if project_kind == "fastapi-auth"
+                else '{"cwd":"__LAST_PROJECT__","command":"npm install && npm run dev","detach":true}'
+                if project_kind in {"react", "react-tailwind"}
                 else '{"cwd":"__LAST_PROJECT__","command":"python3 -m http.server 4173","detach":true}'
             )
             steps.append(
@@ -501,13 +508,8 @@ def fallback_plan(command: str, conversation_history: str = "") -> tuple[list[di
             final_text += " I will also start it locally."
         return (steps, final_text)
 
-    provider = settings.llm_provider.lower()
-    if provider == "ollama":
-        model_hint = "The local AI engine is unavailable for deeper planning right now, so Magic can still do fast direct actions and shortcuts but not full deep automation."
-    else:
-        model_hint = "The API model is unavailable right now, so Magic can still do fast direct actions and shortcuts but not full deep automation."
-
+    provider = settings.llm_provider.capitalize()
     return (
         [_final_step("llm needed")],
-        "Magic could not use its deep planner for that request right now. " + model_hint,
+        f"I'm having trouble connecting to {provider} right now. I can still perform basic local tasks, but complex planning is temporarily unavailable.",
     )

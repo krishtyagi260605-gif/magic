@@ -12,14 +12,14 @@ STATIC = ROOT / "app" / "static"
 RESOURCES = ROOT / "Magic.app" / "Contents" / "Resources"
 ICONSET = RESOURCES / "Magic.iconset"
 
-# Aurora prism palette (matches magic-icon.svg / web UI)
-BG_TOP = (20, 8, 31)
-BG_BOTTOM = (10, 22, 40)
-FACE = (30, 16, 56)
-RING_A = (94, 234, 212)
-RING_B = (167, 139, 250)
-RING_C = (244, 114, 182)
-ACCENT_SUN = (251, 191, 36)
+# Premium Dark Cyberpunk palette
+BG_TOP = (15, 15, 20)
+BG_BOTTOM = (5, 5, 8)
+FACE = (22, 22, 28)
+RING_A = (0, 238, 255)    # Neon Cyan
+RING_B = (255, 0, 128)    # Neon Pink
+RING_C = (138, 43, 226)   # Deep Purple
+ACCENT_SUN = (255, 255, 255) # Pure White
 
 
 def make_icon(size: int) -> Image.Image:
@@ -149,6 +149,7 @@ def save_icon_pngs() -> None:
         "icon_512x512@2x.png": 1024,
     }
     for name, icon_size in sizes.items():
+        print(f"Generating {name}...")
         base.resize((icon_size, icon_size), Image.Resampling.LANCZOS).save(ICONSET / name)
 
 

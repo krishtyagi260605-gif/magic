@@ -1,2 +1,1 @@
-"""Mac automation agent service package."""
-
+# Magic tests package

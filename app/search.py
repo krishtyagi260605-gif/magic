@@ -20,6 +20,20 @@ def _clean_html(text: str) -> str:
     stripped = re.sub(r"<[^>]+>", "", text or "")
     return " ".join(unescape(stripped).split())
 
+def fetch_url(url: str) -> str:
+    try:
+        req = Request(url, headers={"User-Agent": "Magic/1.0 Mozilla/5.0"})
+        with urlopen(req, timeout=8.0) as response:
+            html = response.read().decode("utf-8", errors="ignore")
+            body = re.search(r'<body[^>]*>(.*?)</body>', html, re.IGNORECASE | re.DOTALL)
+            text = body.group(1) if body else html
+            text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
+            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.IGNORECASE | re.DOTALL)
+            text = re.sub(r'<[^>]+>', ' ', text)
+            text = " ".join(unescape(text).split())
+            return text[:8000]
+    except Exception as e:
+        return f"Failed to fetch {url}: {e}"
 
 def _extract_direct_fact(query: str, snippets: list[str]) -> str | None:
     normalized = query.lower()

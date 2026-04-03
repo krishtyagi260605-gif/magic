@@ -7,6 +7,7 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 from app.config import get_settings
+from app.llm import get_last_providers
 
 
 def _fetch_json(url: str, timeout: float = 1.5) -> tuple[bool, dict[str, object] | None, str | None]:
@@ -43,6 +44,17 @@ def build_runtime_status() -> dict[str, object]:
     ollama_installed = shutil.which("ollama") is not None
 
     ollama_ok, ollama_payload, ollama_error = _fetch_json(f"{settings.ollama_base_url.rstrip('/')}/api/tags") if ollama_installed else (False, None, "Ollama is not installed")
+    
+    fallback_providers_raw = [p.strip() for p in settings.llm_fallback_providers.split(",") if p.strip()]
+    fallback_ready = []
+    for p in fallback_providers_raw:
+        if p == "google" and bool(settings.google_api_key): fallback_ready.append(p)
+        elif p == "openai" and bool(settings.openai_api_key): fallback_ready.append(p)
+        elif p == "anthropic" and bool(settings.anthropic_api_key): fallback_ready.append(p)
+        elif p == "groq" and bool(settings.groq_api_key): fallback_ready.append(p)
+        elif p == "ollama" and ollama_ok: fallback_ready.append(p)
+
+    last_prov, last_fall = get_last_providers()
 
     llm_reachable = None
     llm_error = None
@@ -59,11 +71,29 @@ def build_runtime_status() -> dict[str, object]:
         llm_model_available = llm_reachable
         if not llm_reachable:
             llm_error = "OPENAI_API_KEY is not set"
+    elif provider == "anthropic":
+        llm_reachable = bool(settings.anthropic_api_key)
+        llm_model_available = llm_reachable
+        if not llm_reachable:
+            llm_error = "ANTHROPIC_API_KEY is not set"
+    elif provider == "groq":
+        llm_reachable = bool(settings.groq_api_key)
+        llm_model_available = llm_reachable
+        if not llm_reachable:
+            llm_error = "GROQ_API_KEY is not set"
+    elif provider == "google":
+        llm_reachable = bool(settings.google_api_key)
+        llm_model_available = llm_reachable
+        if not llm_reachable:
+            llm_error = "GOOGLE_API_KEY is not set"
 
     embedding_reachable = None
     embedding_error = None
     embedding_model_available = None
-    if embedding_provider == "ollama":
+    if embedding_provider == "none":
+        embedding_reachable = True
+        embedding_model_available = False
+    elif embedding_provider == "ollama":
         embedding_reachable = ollama_ok
         embedding_model_available = _ollama_model_present(ollama_payload, settings.ollama_embedding_model) if ollama_ok else False
         if not ollama_ok:
@@ -75,6 +105,11 @@ def build_runtime_status() -> dict[str, object]:
         embedding_model_available = embedding_reachable
         if not embedding_reachable:
             embedding_error = "OPENAI_API_KEY is not set"
+    elif embedding_provider == "google":
+        embedding_reachable = bool(settings.google_api_key)
+        embedding_model_available = embedding_reachable
+        if not embedding_reachable:
+            embedding_error = "GOOGLE_API_KEY is not set"
 
     index_paths = [str(path) for path in settings.parsed_index_paths()]
     persist_dir = settings.magic_data_dir / "vector_index"
@@ -86,9 +121,26 @@ def build_runtime_status() -> dict[str, object]:
     return {
         "app_name": settings.app_name,
         "dry_run_default": settings.dry_run_default,
+        "fallback": {
+            "primary_provider": provider,
+            "configured_providers": fallback_providers_raw,
+            "ready_providers": fallback_ready,
+            "last_provider_used": last_prov,
+            "last_fallback_used": last_fall,
+        },
         "llm": {
             "provider": provider,
-            "model": settings.openai_model if provider == "openai" else settings.ollama_model,
+            "model": (
+                settings.openai_model
+                if provider == "openai"
+                else settings.anthropic_model
+                if provider == "anthropic"
+                else settings.groq_model
+                if provider == "groq"
+                else settings.google_model
+                if provider == "google"
+                else settings.ollama_model
+            ),
             "reachable": llm_reachable,
             "error": llm_error,
             "model_available": llm_model_available,
@@ -96,7 +148,15 @@ def build_runtime_status() -> dict[str, object]:
         },
         "embeddings": {
             "provider": embedding_provider,
-            "model": settings.openai_embedding_model if embedding_provider == "openai" else settings.ollama_embedding_model,
+            "model": (
+                settings.openai_embedding_model
+                if embedding_provider == "openai"
+                else settings.ollama_embedding_model
+                if embedding_provider == "ollama"
+                else settings.google_embedding_model
+                if embedding_provider == "google"
+                else ""
+            ),
             "reachable": embedding_reachable,
             "error": embedding_error,
             "model_available": embedding_model_available,

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     owner_name: str = "Krish Tyagi"
     dry_run_default: bool = True
 
-    llm_provider: str = Field(default="ollama", description="ollama | openai | anthropic | groq | google")
+    llm_provider: str = Field(default="google", description="ollama | openai | anthropic | groq | google")
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o"
     anthropic_api_key: str | None = None
@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     groq_api_key: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
     google_api_key: str | None = None
-    google_model: str = "gemini-1.5-flash"
+    google_model: str = "gemini-2.5-flash"
+    llama_cloud_api_key: str | None = None
+    google_fast_model: str = "gemini-2.5-flash"
+    google_deep_model: str = "gemini-2.5-pro"
     ollama_model: str = "qwen2.5:7b"
     ollama_base_url: str = "http://127.0.0.1:11434"
     # Keep model loaded in Ollama between calls (faster follow-up turns)
@@ -38,10 +41,14 @@ class Settings(BaseSettings):
     # Tiny JSON classification when using OpenAI/Anthropic (router only)
     openai_router_max_tokens: int = 380
 
+    llm_max_retries: int = 3
+    llm_fallback_providers: str = "google,openai,anthropic"
+
     # LlamaIndex RAG — embeddings must match your setup (OpenAI key or local Ollama embed model)
-    embedding_provider: str = Field(default="ollama", description="ollama | openai")
+    embedding_provider: str = Field(default="google", description="none | ollama | openai | google")
     openai_embedding_model: str = "text-embedding-3-small"
     ollama_embedding_model: str = "nomic-embed-text"
+    google_embedding_model: str = "models/embedding-001"
     magic_data_dir: Path = Field(default_factory=lambda: Path.home() / ".magic")
     magic_workspace_root: Path = Field(default_factory=lambda: Path.home() / "Desktop" / "MagicProjects")
     # Comma-separated absolute or ~ paths to folders/files to index (created on first ingest if missing)
@@ -61,9 +68,18 @@ class Settings(BaseSettings):
             return Path.home() / ".magic"
         return Path(s).expanduser().resolve()
 
+    @field_validator("embedding_provider", mode="before")
+    @classmethod
+    def _force_provider(cls, v: object) -> str:
+        val = str(v).lower().strip() if v else ""
+        if not val or val == "none":
+            return "google"
+        return val
+
     def parsed_index_paths(self) -> list[Path]:
         if not self.magic_index_paths.strip():
             default = Path.home() / "Documents" / "MagicNotes"
+            default.mkdir(parents=True, exist_ok=True)
             return [default]
         parts = [p.strip() for p in self.magic_index_paths.split(",") if p.strip()]
         return [Path(p).expanduser().resolve() for p in parts]
@@ -132,6 +148,8 @@ class Settings(BaseSettings):
     agent_observation_max_chars: int = 1400
     agent_history_max_chars: int = 3500
     status_poll_interval_ms: int = 30000
+
+    sandbox_docker_image: str = "python:3.11-slim"
 
 
 class SafetyReport(BaseModel):

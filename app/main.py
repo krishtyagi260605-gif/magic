@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -22,26 +23,110 @@ from app.models import (
     ConversationSessionSummary,
     ConversationTurnModel,
     IngestRequest,
+    ApprovalModel,
+    ApprovalResolutionRequest,
     IngestResponse,
     MemoryQueryResponse,
     TranscribeResponse,
 )
+from app.profile import maybe_learn_from_message, profile_stats, profile_summary, record_feedback, remember_fact, set_preference
 from app.rag import ingest_paths, query_memory
 from app.status import build_runtime_status
 from app.voice import transcribe_bytes
 from app.workspace import workspace_root, read_workspace_file, write_workspace_file
+from app.trace import get_trace
 
 settings = get_settings()
+
+
+def _collect_response_metadata(
+    *,
+    command: str,
+    plan: list,
+    outputs: list[str],
+    final: str,
+    task_trace: list[str],
+) -> dict[str, object]:
+    text_blob = "\n".join([*outputs, final])
+    files_changed: list[str] = []
+    created_artifacts: list[str] = []
+    commands_run: list[str] = []
+    run_logs: list[str] = []
+    verification_results: list[str] = []
+    sources: list[str] = []
+    errors: list[str] = []
+    preview_url: str | None = None
+    opened_file: str | None = None
+
+    for output in outputs:
+        for pattern in (r"\bWrote\s+(.+)", r"\bPatched\s+(.+)"):
+            for match in re.finditer(pattern, output):
+                files_changed.append(match.group(1).strip())
+        for match in re.finditer(r"Primary file:\s+(.+)", output):
+            opened_file = match.group(1).strip()
+        if "Logs:" in output:
+            run_logs.append(output.split("Logs:", 1)[1].strip())
+        if output.startswith("workspace_run ->") or "Started background command" in output or "Generated " in output:
+            verification_results.append(output.strip())
+        if "BLOCKED:" in output or "failed" in output.lower() or "error" in output.lower():
+            errors.append(output.strip())
+        if "Artifacts:" in output:
+            artifacts_part = output.split("Artifacts:", 1)[1]
+            for line in artifacts_part.splitlines():
+                if line.strip().startswith("- "):
+                    created_artifacts.append(line.strip()[2:])
+        for src in re.findall(r"https?://[^\s`]+", output):
+            if src not in sources:
+                sources.append(src)
+        if preview_url is None:
+            url_match = re.search(r"https?://[^\s`]+", output)
+            if url_match:
+                preview_url = url_match.group(0)
+
+    for tool_call in plan:
+        if getattr(tool_call, "tool", "") == "workspace_run":
+            payload = getattr(tool_call, "input", "")
+            try:
+                data = json.loads(payload) if payload.strip().startswith("{") else {}
+            except Exception:  # noqa: BLE001
+                data = {}
+            cmd = str(data.get("command", "")).strip()
+            if cmd:
+                commands_run.append(cmd)
+
+    if not preview_url:
+        final_url = re.search(r"https?://[^\s`]+", final)
+        if final_url:
+            preview_url = final_url.group(0)
+    if not opened_file and files_changed:
+        opened_file = files_changed[0]
+    if not verification_results and task_trace:
+        verification_results = [step for step in task_trace if "complete" in step.lower() or "result" in step.lower()]
+    return {
+        "files_changed": list(dict.fromkeys(files_changed)),
+        "created_artifacts": list(dict.fromkeys(created_artifacts)),
+        "opened_file": opened_file,
+        "preview_url": preview_url,
+        "commands_run": list(dict.fromkeys(commands_run)),
+        "run_logs": list(dict.fromkeys(run_logs)),
+        "verification_results": list(dict.fromkeys(verification_results)),
+        "sources": list(dict.fromkeys(sources)),
+        "errors": list(dict.fromkeys(errors)),
+    }
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     try:
         from app.embeddings import configure_llama_global_embeddings
+        from app.rag import load_or_build_index
+        import threading
 
         configure_llama_global_embeddings()
-    except Exception:  # noqa: BLE001
-        pass
+        # Auto-build or load RAG index in background on startup
+        threading.Thread(target=load_or_build_index, daemon=True).start()
+    except Exception as e:  # noqa: BLE001
+        print(f"RAG initialization bypassed or failed: {e}")
     yield
 
 
@@ -147,25 +232,93 @@ class FSWriteRequest(BaseModel):
 @app.post("/v1/fs/write")
 def fs_write(req: FSWriteRequest) -> dict:
     try:
+        from app.tools import _trigger_index
         res = write_workspace_file(req.path, req.content, overwrite=req.overwrite)
+        _trigger_index()
         return {"status": "ok", "message": res}
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.delete("/v1/fs/delete")
+def fs_delete(path: str) -> dict:
+    try:
+        from app.workspace import resolve_workspace_path
+        target = resolve_workspace_path(path)
+        if not target.exists():
+            raise FileNotFoundError(f"{path} not found")
+        if target.is_dir():
+            import shutil
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+        from app.tools import _trigger_index
+        _trigger_index()
+        return {"status": "ok", "message": f"Deleted {path}"}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class ToolExecuteRequest(BaseModel):
+    tool: str
+    payload: str
+
+@app.post("/v1/tool/execute")
+def tool_execute(req: ToolExecuteRequest) -> dict:
+    from app.tools import execute_tool_call
+    res = execute_tool_call(req.tool, req.payload, execute=True, approval_mode="auto_apply")
+    return res.to_dict()
+
+@app.get("/v1/sessions/{session_id}/approvals", response_model=list[ApprovalModel])
+def list_approvals(session_id: str) -> list[ApprovalModel]:
+    from app.trace import get_pending_approvals
+    return get_pending_approvals(session_id)
+
+@app.post("/v1/approvals/{approval_id}/resolve")
+def resolve_approval_route(approval_id: str, req: ApprovalResolutionRequest) -> dict:
+    from app.trace import resolve_approval
+    res = resolve_approval(approval_id, req.action)
+    if not res: raise HTTPException(404, "Approval not found")
+    return res
+
+@app.post("/v1/sessions/{session_id}/cancel")
+def cancel_session_route(session_id: str) -> dict:
+    from app.graph import cancel_session
+    cancel_session(session_id)
+    return {"status": "cancelled"}
+
 @app.post("/v1/command", response_model=CommandResponse)
 def command(req: CommandRequest) -> CommandResponse:
+    import time
     execute = req.developer_mode if req.execute is None else req.execute
     session_id = ensure_session(req.session_id, req.command)
     append_turn(session_id, "user", req.command)
-    plan, outputs, final, task_trace = run_magic(
+    maybe_learn_from_message(req.command)
+    t0 = time.monotonic()
+    plan, outputs, final, task_trace, intent, tool_results = run_magic(
         req.command,
         execute=execute,
         conversation_history=format_history(session_id),
         reasoning_level=req.reasoning_level,
         developer_mode=req.developer_mode,
         app_mode=req.app_mode,
+        session_id=session_id,
+        approval_mode=req.approval_mode,
     )
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    metadata = _collect_response_metadata(
+        command=req.command,
+        plan=plan,
+        outputs=outputs,
+        final=final,
+        task_trace=task_trace,
+    )
+    
+    all_sources = list(metadata["sources"])
+    for tr in tool_results:
+        all_sources.extend(tr.get("sources", []))
+    metadata["sources"] = list(dict.fromkeys(all_sources))
+        
     append_turn(session_id, "assistant", final)
     return CommandResponse(
         mode="execute" if execute else "dry_run",
@@ -173,11 +326,23 @@ def command(req: CommandRequest) -> CommandResponse:
         user_command=req.command,
         reasoning_level=req.reasoning_level,
         developer_mode=req.developer_mode,
+        intent=intent,
         plan=plan,
         task_trace=task_trace,
         outputs=outputs,
         final=final,
         used_tools=bool(outputs),
+        duration_ms=duration_ms,
+        files_changed=metadata["files_changed"],
+        created_artifacts=metadata["created_artifacts"],
+        opened_file=metadata["opened_file"],
+        preview_url=metadata["preview_url"],
+        commands_run=metadata["commands_run"],
+        run_logs=metadata["run_logs"],
+        verification_results=metadata["verification_results"],
+        sources=metadata["sources"],
+        errors=metadata["errors"],
+        tool_results=tool_results,
     )
 
 
@@ -187,6 +352,9 @@ async def command_stream(req: CommandRequest) -> StreamingResponse:
     execute = req.developer_mode if req.execute is None else req.execute
     session_id = ensure_session(req.session_id, req.command)
     append_turn(session_id, "user", req.command)
+    from app.graph import clear_cancel
+    clear_cancel(session_id)
+    maybe_learn_from_message(req.command)
 
     async def event_generator():
         loop = asyncio.get_event_loop()
@@ -197,7 +365,7 @@ async def command_stream(req: CommandRequest) -> StreamingResponse:
         yield _sse("trace", {"step": "Starting Magic...", "session_id": session_id})
 
         try:
-            plan, outputs, final, task_trace = await loop.run_in_executor(
+            plan, outputs, final, task_trace, intent, tool_results = await loop.run_in_executor(
                 None,
                 lambda: run_magic(
                     req.command,
@@ -206,6 +374,8 @@ async def command_stream(req: CommandRequest) -> StreamingResponse:
                     reasoning_level=req.reasoning_level,
                     developer_mode=req.developer_mode,
                     app_mode=req.app_mode,
+                    session_id=session_id,
+                    approval_mode=req.approval_mode,
                 ),
             )
 
@@ -214,7 +384,23 @@ async def command_stream(req: CommandRequest) -> StreamingResponse:
 
             for i, output in enumerate(outputs):
                 yield _sse("tool", {"index": i, "output": output[:2000]})
+                if "Logs:" in output or "Started background command" in output or "workspace_run ->" in output:
+                    yield _sse("terminal", {"text": output})
 
+            append_turn(session_id, "assistant", final)
+            metadata = _collect_response_metadata(
+                command=req.command,
+                plan=plan,
+                outputs=outputs,
+                final=final,
+                task_trace=task_trace,
+            )
+            
+            all_sources = list(metadata["sources"])
+            for tr in tool_results:
+                all_sources.extend(tr.get("sources", []))
+            metadata["sources"] = list(dict.fromkeys(all_sources))
+                
             append_turn(session_id, "assistant", final)
             yield _sse("final", {
                 "mode": "execute" if execute else "dry_run",
@@ -223,10 +409,15 @@ async def command_stream(req: CommandRequest) -> StreamingResponse:
                 "used_tools": bool(outputs),
                 "plan_count": len(plan),
                 "task_trace": task_trace,
+                "tool_results": tool_results,
+                **metadata,
             })
 
         except Exception as exc:  # noqa: BLE001
-            yield _sse("error", {"message": str(exc)})
+            print(f"Stream error: {exc}")
+            yield _sse("error", {
+                "message": "Magic encountered an unexpected error. Please try again."
+            })
 
         yield _sse("done", {})
 
@@ -256,6 +447,41 @@ def sessions() -> list[ConversationSessionSummary]:
             )
         )
     return items
+
+
+@app.get("/v1/profile")
+def profile_get() -> dict[str, object]:
+    return {
+        "summary": profile_summary(),
+        "stats": profile_stats(),
+    }
+
+
+@app.post("/v1/profile/remember")
+def profile_remember(body: dict) -> dict[str, object]:
+    text = str(body.get("text", "")).strip()
+    source = str(body.get("source", "manual")).strip() or "manual"
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+    return remember_fact(text, source=source)
+
+
+@app.post("/v1/profile/preference")
+def profile_preference(body: dict) -> dict[str, object]:
+    key = str(body.get("key", "")).strip()
+    value = str(body.get("value", "")).strip()
+    source = str(body.get("source", "manual")).strip() or "manual"
+    if not key or not value:
+        raise HTTPException(status_code=400, detail="key and value are required")
+    return set_preference(key, value, source=source)
+
+
+@app.post("/v1/profile/feedback")
+def profile_feedback(body: dict) -> dict[str, object]:
+    text = str(body.get("text", "")).strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+    return record_feedback(text)
 
 
 @app.get("/v1/sessions/{session_id}", response_model=ConversationSessionResponse)
@@ -290,6 +516,15 @@ def session_rename(session_id: str, body: dict) -> dict:
             session.title = new_title[:60]
             _save()
     return {"status": "renamed", "id": session_id, "title": session.title}
+
+
+@app.get("/v1/trace/{session_id}")
+def session_trace(session_id: str) -> dict:
+    """Retrieve the execution trace events for a given session."""
+    events = get_trace(session_id)
+    if not events:
+        raise HTTPException(status_code=404, detail="Trace not found")
+    return {"session_id": session_id, "events": events}
 
 
 @app.get("/v1/sessions/{session_id}/export")
@@ -362,11 +597,19 @@ async def voice_command(
     exec_flag = settings.dry_run_default is False if execute is None else execute
     session_id = ensure_session(None, text)
     append_turn(session_id, "user", text)
-    plan, outputs, final, task_trace = run_magic(
+    plan, outputs, final, task_trace, intent = run_magic(
         text,
         execute=exec_flag,
         conversation_history=format_history(session_id),
         app_mode="magic",
+        session_id=session_id,
+    )
+    metadata = _collect_response_metadata(
+        command=text,
+        plan=plan,
+        outputs=outputs,
+        final=final,
+        task_trace=task_trace,
     )
     append_turn(session_id, "assistant", final)
     return CommandResponse(
@@ -380,4 +623,14 @@ async def voice_command(
         outputs=outputs,
         final=final,
         used_tools=bool(outputs),
+        intent=intent,
+        files_changed=metadata["files_changed"],
+        created_artifacts=metadata["created_artifacts"],
+        opened_file=metadata["opened_file"],
+        preview_url=metadata["preview_url"],
+        commands_run=metadata["commands_run"],
+        run_logs=metadata["run_logs"],
+        verification_results=metadata["verification_results"],
+        sources=metadata["sources"],
+        errors=metadata["errors"],
     )

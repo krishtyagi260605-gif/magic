@@ -1,508 +1,1099 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cursor - Magic Sisi</title>
+  <title>Magic Sisi</title>
   <link rel="icon" type="image/svg+xml" href="/static/magic-icon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css" />
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/diff.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
-
   <style>
     :root {
-      --bg-base: #0a0a0c;
-      --bg-activity: #101014;
-      --bg-sidebar: #121217;
-      --bg-editor: #0d0d11;
-      --bg-chat: #121217;
+      --bg: #090d14;
+      --panel: #0f1420;
+      --panel-2: #121927;
+      --panel-3: #0c111b;
       --border: rgba(255, 255, 255, 0.08);
-      --text-main: #d1d5db;
-      --text-muted: #6b7280;
-      --text-active: #ffffff;
-      --accent: #3b82f6;
-      --accent-glow: rgba(59, 130, 246, 0.2);
+      --text: #f8fafc;
+      --muted: #8ea0bc;
+      --accent: #74c0fc;
+      --mono: "IBM Plex Mono", monospace;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
-    body { 
-      background: var(--bg-base); 
-      color: var(--text-main); 
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      font-size: 13px;
-      height: 100vh;
-      width: 100vw;
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
       overflow: hidden;
-      display: flex;
     }
 
-    /* 1. ACTIVITY BAR */
-    .activity-bar {
-      width: 56px;
-      background: var(--bg-activity);
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, sans-serif;
+      display: grid;
+      grid-template-columns: 62px 280px 420px 1fr;
+    }
+
+    .rail,
+    .sidebar,
+    .chat,
+    .editor {
+      min-height: 0;
+    }
+
+    .rail {
+      background: rgba(8, 10, 15, 1);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 20px;
-      gap: 24px;
-      z-index: 100;
+      gap: 12px;
+      padding: 16px 0;
     }
-    .activity-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+
+    .rail button {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .rail button.active,
+    .rail button:hover {
+      background: rgba(116, 192, 252, 0.12);
+      color: var(--accent);
+      border-color: rgba(116, 192, 252, 0.18);
+    }
+
+    .sidebar {
+      background: rgba(12, 16, 24, 1);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 2px 8px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: auto;
+      min-height: 0;
+    }
+
+    .item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+
+    .item:hover,
+    .item.active {
+      background: rgba(116, 192, 252, 0.09);
+    }
+
+    .item strong,
+    .item div:first-child {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .item span,
+    .item-sub {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .small-btn,
+    .primary-btn {
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .small-btn {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+    }
+
+    .primary-btn {
+      border: 0;
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    .chat {
+      background: rgba(14, 19, 29, 1);
+      border-right: 1px solid var(--border);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .chat-top {
+      padding: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .chat-top h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .chat-top p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .thread {
+      overflow: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .msg-meta {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .msg-body {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      line-height: 1.7;
+      font-size: 14px;
+      word-break: break-word;
+    }
+
+    .msg-body pre {
+      position: relative;
+      overflow: auto;
+      padding: 14px;
+      border-radius: 14px;
+      background: #08101d;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .msg-body table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0;
+    }
+
+    .msg-body th,
+    .msg-body td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .msg-body th {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .composer {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .composer textarea {
+      width: 100%;
+      min-height: 92px;
+      max-height: 220px;
+      resize: none;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font: inherit;
+      line-height: 1.6;
+    }
+
+    .composer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .pill,
+    select {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    label.toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .editor {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background: var(--panel-3);
+    }
+
+    .files-drawer {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 10, 16, 0.82);
+      backdrop-filter: blur(14px);
+      display: none;
+      align-items: stretch;
+      justify-content: center;
+      padding: 28px;
+      z-index: 50;
+    }
+
+    .files-drawer.open {
+      display: flex;
+    }
+
+    .files-shell {
+      width: min(980px, 100%);
+      background: #0d1320;
+      border: 1px solid var(--border);
+      border-radius: 26px;
+      display: grid;
+      overflow: hidden;
+    }
+
+    .files-preview {
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+    }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .drawer-head h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .terminal-pane {
+      background: #080a10;
+      border-top: 1px solid var(--border);
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .terminal-header {
+      padding: 6px 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    #terminalOutput {
+      padding: 10px 14px;
+      margin: 0;
+      overflow: auto;
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #a5b4fc;
+      white-space: pre-wrap;
+    }
+
+    .editor-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .editor-title {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    #monaco-root {
+      display: none;
+    }
+
+    #monaco-root,
+    .empty {
+      min-height: 0;
+    }
+
+    .empty {
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    .activity-icon:hover { color: var(--text-active); background: rgba(255,255,255,0.05); }
-    .activity-icon.active { color: var(--accent); background: rgba(59, 130, 246, 0.1); }
-
-    /* 2. SIDEBAR */
-    .sidebar {
-      width: 260px;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      animation: slideIn 0.3s ease;
-    }
-    @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-    .sidebar-header {
-      padding: 24px 20px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .new-btn {
-      margin: 12px 20px 24px;
-      padding: 10px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text-main);
-      cursor: pointer;
       text-align: center;
-      font-weight: 500;
-      transition: 0.2s;
+      color: var(--muted);
+      padding: 30px;
     }
-    .new-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--text-muted); }
 
-    .item-list { flex: 1; overflow-y: auto; padding-bottom: 20px; }
-    .item {
-      padding: 10px 20px;
+    .inject-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      border: 1px solid rgba(116, 192, 252, 0.28);
+      background: rgba(116, 192, 252, 0.08);
+      color: var(--accent);
+      border-radius: 9px;
+      padding: 5px 8px;
+      font-size: 11px;
       cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      border-left: 2px solid transparent;
-      transition: 0.2s;
-    }
-    .item:hover { background: rgba(255,255,255,0.03); }
-    .item.active { background: rgba(59, 130, 246, 0.08); border-left-color: var(--accent); color: var(--text-active); }
-    .item-title { font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .item-sub { font-size: 11px; color: var(--text-muted); }
-
-    /* 3. CHAT COMPOSER */
-    .chat-panel {
-      width: 480px;
-      background: var(--bg-chat);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-    .chat-header {
-      padding: 16px 24px;
-      font-weight: 600;
-      font-size: 14px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
 
-    .composer-wrap {
-      padding: 24px;
-      background: linear-gradient(to bottom, transparent, var(--bg-chat));
-      z-index: 10;
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 64px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 5px 8px;
+      font-size: 11px;
+      cursor: pointer;
     }
-    .composer-box {
-      background: #1a1a20;
+
+    .inject-btn,
+    .copy-btn {
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .msg-body pre:hover .inject-btn,
+    .msg-body pre:hover .copy-btn {
+      opacity: 1;
+    }
+
+    .timeline {
+      background: rgba(0, 0, 0, 0.2);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      transition: 0.2s;
-    }
-    .composer-box:focus-within { border-color: var(--accent); box-shadow: 0 8px 32px var(--accent-glow); }
-    
-    .composer-input {
-      background: transparent;
-      border: none;
-      color: var(--text-active);
-      font-size: 14px;
-      line-height: 1.6;
-      resize: none;
-      min-height: 60px;
-      max-height: 400px;
-    }
-    .composer-input::placeholder { color: #52525b; }
-
-    .composer-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .pills { display: flex; gap: 8px; }
-    .pill {
-      background: rgba(255,255,255,0.04);
-      padding: 4px 10px;
-      border-radius: 100px;
-      font-size: 10px;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      cursor: pointer;
-    }
-    .pill.active { color: var(--accent); border-color: var(--accent); }
-
-    .send-btn {
-      background: var(--text-main);
-      color: var(--bg-base);
-      border: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-weight: 600;
+      padding: 10px 14px;
+      margin: 10px 0;
       font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .timeline summary {
       cursor: pointer;
-      transition: 0.2s;
+      color: var(--accent);
+      outline: none;
+      font-weight: 500;
     }
-    .send-btn:hover { background: #fff; transform: translateY(-1px); }
 
-    .thread { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 32px; }
-    .thread::-webkit-scrollbar { width: 5px; }
-    .thread::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-
-    .msg { animation: msgFade 0.3s ease; }
-    @keyframes msgFade { from { opacity: 0; transform: translateY(10px); } }
-    .msg-header { 
-      font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; 
-      display: flex; align-items: center; gap: 8px;
+    .timeline ul {
+      margin: 8px 0 0 0;
+      padding-left: 20px;
     }
-    .msg-body { font-size: 13.5px; line-height: 1.7; color: #e5e7eb; }
-    .msg-body pre {
-      background: #050507;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      margin: 12px 0;
-      position: relative;
-    }
-    .msg-body code { font-family: 'Fira Code', monospace; }
 
-    /* 4. EDITOR */
-    .editor-panel { flex: 1; background: var(--bg-editor); display: flex; flex-direction: column; }
-    .tabs { display: flex; background: var(--bg-activity); height: 40px; border-bottom: 1px solid var(--border); }
-    .tab {
-      padding: 0 20px;
-      display: flex;
+    .timeline li {
+      margin-bottom: 4px;
+    }
+
+    .typing-indicator {
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      color: var(--text-muted);
-      border-right: 1px solid var(--border);
-      cursor: pointer;
-      font-size: 12px;
-      background: var(--bg-activity);
-    }
-    .tab.active { background: var(--bg-editor); color: var(--accent); border-bottom: 2px solid var(--accent); }
-
-    #monaco-root { flex: 1; }
-    .empty-state {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      color: var(--text-muted); text-align: center; gap: 20px;
+      gap: 4px;
+      height: 20px;
     }
 
-    .toast {
-      position: fixed; bottom: 32px; right: 32px;
-      background: var(--bg-activity); border: 1px solid var(--accent);
-      color: #fff; padding: 12px 24px; border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 1000;
-      animation: toastIn 0.3s ease;
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: typing 1.4s infinite ease-in-out both;
     }
-    @keyframes toastIn { from { transform: translateY(20px); opacity: 0; } }
+
+    .typing-dot:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .typing-dot:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    .typing-dot:nth-child(3) {
+      animation-delay: 0s;
+    }
+
+    @keyframes typing {
+
+      0%,
+      80%,
+      100% {
+        transform: scale(0);
+        opacity: 0.4;
+      }
+
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
   </style>
 </head>
+
 <body>
-  
-  <div class="activity-bar">
-    <div class="activity-icon" title="Explorer" onclick="loadFiles()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-    </div>
-    <div class="activity-icon active" title="Composer" onclick="startNewThread()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
-    </div>
-    <div style="margin-top:auto; margin-bottom: 20px;" class="activity-icon" onclick="window.location.href='/'">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-    </div>
+  <div class="rail">
+    <button class="active" onclick="loadFiles()" title="Files">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    </button>
+    <button onclick="startNewThread()" title="New session">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </svg>
+    </button>
+    <button onclick="window.location.href='/'" title="Back to Magic">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      </svg>
+    </button>
   </div>
 
-  <div class="sidebar">
-    <div id="sidebarTitle" class="sidebar-header">Conversations</div>
-    <button class="new-btn" onclick="startNewThread()">New Session</button>
-    <div class="item-list" id="itemList">
-      <div class="item active">
-        <div class="item-title">Magic Sisi Workspace</div>
-        <div class="item-sub">Active Session</div>
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="/static/magic-icon.svg" alt="Magic" width="36" height="36" />
+      <div>
+        <h1>Sisi</h1>
+        <p>IDE mode for Gemini-powered coding, edits, and file work.</p>
       </div>
     </div>
-  </div>
 
-  <div class="chat-panel">
-    <div class="chat-header">
-      Composer
-      <span style="opacity:0.4; font-size:10px;">Llama-3.1-405B Powered</span>
+    <div class="panel">
+      <div class="panel-head"><span>Mode</span></div>
+      <div class="pill" id="brainLabel">Gemini coder</div>
     </div>
-    
-    <div class="thread" id="chatThread"></div>
 
-    <div class="composer-wrap">
-      <div class="composer-box">
-        <textarea id="chatInput" class="composer-input" placeholder="How can I help you today?"></textarea>
-        <div class="composer-footer">
-          <div class="pills">
-            <div class="pill active">Agent Mode</div>
-            <select id="reasoning" style="background:transparent; border:none; color:var(--text-muted); font-size:10px;">
-              <option value="medium">Refined (Med)</option>
-              <option value="high">Deep (High)</option>
-              <option value="easy">Fast (Easy)</option>
-            </select>
-          </div>
-          <button class="send-btn" id="sendBtn">Shoot</button>
+    <div class="panel">
+      <div class="panel-head"><span>Help</span></div>
+      <button class="small-btn" style="width: 100%;" onclick="$('helpModal').classList.add('open')">Help / What's
+        New</button>
+    </div>
+
+    <div id="approvalsContainer" class="panel" style="display:none; border-color: var(--accent);">
+      <div class="panel-head" style="color:var(--accent);">⚠️ Pending Approvals</div>
+      <div id="approvalsList" class="list" style="max-height: 160px; margin-bottom: 4px;"></div>
+    </div>
+
+    <div class="panel" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <div class="panel-head">
+        <span>Changed Files</span>
+      </div>
+      <div id="changedFilesList" class="list"
+        style="max-height: 160px; border-bottom: 1px solid var(--border); margin-bottom: 14px; padding-bottom: 10px;">
+        <div class="muted">No local changes.</div>
+      </div>
+      <div class="panel-head">
+        <span>Workspace Files</span>
+        <button class="small-btn" style="padding:6px 10px;" onclick="createNewFile()">New</button>
+      </div>
+      <div id="itemList" class="list">
+        <div class="muted">Loading files...</div>
+      </div>
+    </div>
+  </aside>
+
+  <section class="chat">
+    <div class="chat-top">
+      <h2>Magic Sisi</h2>
+      <p>Ask for code, fixes, refactors, scaffolds, or file operations.</p>
+    </div>
+    <div id="chatThread" class="thread"></div>
+    <div class="composer">
+      <textarea id="chatInput" placeholder="Ask Sisi to build, edit, explain, or refactor..."></textarea>
+      <div class="composer-bottom">
+        <div class="row">
+          <select id="reasoning">
+            <option value="easy">Easy (Flash)</option>
+            <option value="medium" selected>Medium (Balanced)</option>
+            <option value="high">High (Pro)</option>
+            <option value="extra_high">Max (Deep Pro)</option>
+          </select>
+          <select id="approvalMode" class="compact" style="border-radius:12px; padding:8px 10px; font-size:12px;">
+            <option value="auto_apply">Auto Apply</option>
+            <option value="ask_before_apply" selected>Ask First</option>
+            <option value="preview_only">Preview Only</option>
+          </select>
+          <label class="toggle"><input id="developerMode" type="checkbox" checked /> Developer</label>
+          <button id="cancelBtn" class="small-btn" style="display:none;">Cancel</button>
+        </div>
+        <div class="row">
+          <button class="small-btn"
+            style="border:none;background:transparent;padding:6px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;"
+            title="Voice Input">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          </button>
+          <button id="sendBtn" class="primary-btn">Send</button>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="editor-panel">
-    <div class="tabs" id="tabs"></div>
-    <div id="monaco-root" style="display:none;"></div>
-    <div id="welcomeEditor" class="empty-state">
-      <div style="font-size: 2rem; opacity: 0.1;">Sisi</div>
-      <div style="max-width:300px; color:var(--text-muted)">Welcome to your magic workspace. Select a file or ask Sisi to generate code.</div>
-      <button class="new-btn" style="margin:0" onclick="loadFiles()">Open Workspace</button>
+  <section class="editor">
+    <div class="editor-top">
+      <div id="editorTitle" class="editor-title">No file selected</div>
+      <div class="row">
+        <button class="small-btn" style="background:rgba(116,192,252,0.1);color:var(--accent);border-color:transparent;"
+          onclick="runPreview()">Run / Preview</button>
+        <button class="small-btn" onclick="saveFile()">Save</button>
+        <button class="small-btn" onclick="loadFiles()">Refresh</button>
+      </div>
     </div>
-  </div>
+    <div id="monaco-root"></div>
+    <div id="welcomeEditor" class="empty">Select a workspace file or ask Sisi to generate one.</div>
+    <div id="terminalPane" class="terminal-pane">
+      <div class="terminal-header">Terminal Output</div>
+      <pre id="terminalOutput">Waiting for execution...</pre>
+    </div>
+
+    <div id="helpModal" class="files-drawer">
+      <div class="files-shell"
+        style="grid-template-columns: 1fr; max-width: 650px; min-height: auto; align-self: center;">
+        <div class="files-preview">
+          <div class="drawer-head">
+            <h3>Help / What's New in Sisi</h3>
+            <button class="small-btn" style="padding:8px 12px;font-size:12px;"
+              onclick="$('helpModal').classList.remove('open')">Close</button>
+          </div>
+          <div class="msg-body" style="white-space: pre-wrap; font-size: 13px; border:none; background:transparent;">
+            <strong>Welcome to Magic Sisi (IDE Mode)</strong>
+            Sisi is your dedicated autonomous coding agent.
+
+            ✨ <strong>What's New:</strong>
+            • <strong>Smart Context:</strong> Sisi automatically reads your currently open file.
+            • <strong>Right-Click Actions:</strong> Select code in the editor, right click, and choose Explain, Fix,
+            Refactor, or Test.
+            • <strong>Approvals:</strong> Destructive file edits and terminal commands will pause and wait for your
+            approval.
+            • <strong>Live Terminal:</strong> Watch terminal commands execute in real-time at the bottom pane.
+            • <strong>Diff Previews:</strong> See exactly what code will change before applying edits.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <script>
-    const $ = id => document.getElementById(id);
+    const $ = (id) => document.getElementById(id);
     let editor = null;
     let activePath = null;
     let activeSessionId = null;
     let activeController = null;
-    let currentMode = 'chat'; // 'chat' or 'files'
 
-    function toast(m) {
-      const el = document.createElement("div"); el.className = "toast"; el.textContent = m;
-      document.body.appendChild(el); setTimeout(() => el.remove(), 3000);
-    }
-
-    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
-    require(['vs/editor/editor.main'], function() {
-      monaco.editor.defineTheme('cortex-dark', {
-        base: 'vs-dark', inherit: true,
-        rules: [], colors: {
-          'editor.background': '#0d0d11',
-          'editorLineNumber.foreground': '#3f3f46',
-          'editor.lineHighlightBackground': '#18181b',
-          'scrollbarSlider.background': '#27272a44',
-        }
-      });
-      editor = monaco.editor.create($('monaco-root'), {
-        value: "", theme: "cortex-dark",
-        fontSize: 13, fontFamily: "'Fira Code', monospace",
-        minimap: { enabled: false }, automaticLayout: true,
-        padding: { top: 20 }, smoothScrolling: true,
-        wordWrap: "on"
-      });
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveFile);
+    marked.setOptions({
+      highlight: (code, lang) => lang && hljs.getLanguage(lang)
+        ? hljs.highlight(code, { language: lang }).value
+        : hljs.highlightAuto(code).value
     });
 
-    async function saveFile() {
-      if (!activePath) return;
-      const content = editor.getValue();
+    require.config({ paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs" } });
+    require(["vs/editor/editor.main"], () => {
+      monaco.editor.defineTheme("magic-pro", {
+        base: "vs-dark",
+        inherit: true,
+        rules: [],
+        colors: {
+          "editor.background": "#0c111b",
+          "editorLineNumber.foreground": "#4b5c78",
+          "editor.lineHighlightBackground": "#131b2b",
+        }
+      });
+      editor = monaco.editor.create($("monaco-root"), {
+        value: "",
+        language: "plaintext",
+        theme: "magic-pro",
+        automaticLayout: true,
+        minimap: { enabled: false },
+        fontFamily: "IBM Plex Mono, monospace",
+        fontSize: 13,
+        smoothScrolling: true,
+        wordWrap: "on",
+      });
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveFile);
+
+      editor.addAction({
+        id: 'magic-explain', label: 'Magic: Explain Code', contextMenuGroupId: 'magic',
+        run: function (ed) {
+          const sel = ed.getModel().getValueInRange(ed.getSelection());
+          if (!sel.trim()) return;
+          const range = ed.getSelection();
+          $("chatInput").value = `Explain this code from ${activePath || 'editor'} (lines ${range.startLineNumber}-${range.endLineNumber}):\n\n\`\`\`\n${sel}\n\`\`\``;
+          sendCommand();
+        }
+      });
+      editor.addAction({
+        id: 'magic-fix', label: 'Magic: Fix Code', contextMenuGroupId: 'magic',
+        run: function (ed) {
+          const sel = ed.getModel().getValueInRange(ed.getSelection());
+          if (!sel.trim()) return;
+          const range = ed.getSelection();
+          $("chatInput").value = `Fix the issues in this code from ${activePath || 'editor'} (lines ${range.startLineNumber}-${range.endLineNumber}):\n\n\`\`\`\n${sel}\n\`\`\``;
+          sendCommand();
+        }
+      });
+      editor.addAction({
+        id: 'magic-refactor', label: 'Magic: Refactor Code', contextMenuGroupId: 'magic',
+        run: function (ed) {
+          const sel = ed.getModel().getValueInRange(ed.getSelection());
+          if (!sel.trim()) return;
+          const range = ed.getSelection();
+          $("chatInput").value = `Refactor and improve this code from ${activePath || 'editor'} (lines ${range.startLineNumber}-${range.endLineNumber}):\n\n\`\`\`\n${sel}\n\`\`\``;
+          sendCommand();
+        }
+      });
+      editor.addAction({
+        id: 'magic-test', label: 'Magic: Generate Test', contextMenuGroupId: 'magic',
+        run: function (ed) {
+          const sel = ed.getModel().getValueInRange(ed.getSelection());
+          if (!sel.trim()) return;
+          const range = ed.getSelection();
+          $("chatInput").value = `Write tests for this code from ${activePath || 'editor'} (lines ${range.startLineNumber}-${range.endLineNumber}):\n\n\`\`\`\n${sel}\n\`\`\``;
+          sendCommand();
+        }
+      });
+    });
+
+    async function loadStatus() {
       try {
-        const r = await fetch("/v1/fs/write", {
-          method: "POST", headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ path: activePath, content })
-        });
-        if (r.ok) toast("Saved successfully");
-      } catch(e) { toast("Save failed"); }
+        const res = await fetch("/v1/status");
+        const data = await res.json();
+        const provider = data.llm?.provider || "unknown";
+        const model = data.llm?.model || "";
+        $("brainLabel").textContent = `${provider} / ${model}`;
+      } catch { }
     }
 
     async function loadFiles() {
-      currentMode = 'files';
-      $("sidebarTitle").textContent = "Workspace";
-      $("itemList").innerHTML = `<div style="padding:20px; color:var(--text-muted)">Scanning...</div>`;
       try {
-        const r = await fetch("/v1/fs/list");
-        const data = await r.json();
-        $("itemList").innerHTML = "";
-        data.files.forEach(f => {
-          const el = document.createElement("div");
-          el.className = "item";
-          el.innerHTML = `<div class="item-title">📄 ${f}</div>`;
-          el.onclick = () => openFile(f);
-          $("itemList").appendChild(el);
+        const res = await fetch("/v1/fs/list");
+        const data = await res.json();
+        const list = $("itemList");
+        list.innerHTML = "";
+        if (!data.files?.length) {
+          list.innerHTML = `<div class="muted">No files in workspace.</div>`;
+          return;
+        }
+        data.files.forEach((file) => {
+          const item = document.createElement("div");
+          item.className = "item";
+          item.innerHTML = `<div>${escapeHtml(file.split("/").pop())}</div><span>${escapeHtml(file)}</span>`;
+          item.onclick = () => openFile(file);
+          list.appendChild(item);
         });
-      } catch(e) { toast("Failed to load workspace"); }
+      } catch (err) {
+        $("itemList").innerHTML = `<div class="muted">Could not load workspace files.</div>`;
+      }
+    }
+
+    function updateChangedFilesUI() {
+      const list = $("changedFilesList");
+      if (!window.modifiedFiles || window.modifiedFiles.size === 0) {
+        list.innerHTML = '<div class="muted">No local changes.</div>';
+        return;
+      }
+      list.innerHTML = "";
+      window.modifiedFiles.forEach(file => {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `<strong style="color:var(--accent)">• ${escapeHtml(file.split("/").pop())}</strong><span style="opacity:0.6">${escapeHtml(file)}</span>`;
+        item.onclick = () => openFile(file);
+        list.appendChild(item);
+      });
+    }
+
+    async function createNewFile() {
+      const name = prompt("New file path");
+      if (!name) return;
+      const res = await fetch("/v1/fs/write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: name, content: "", overwrite: false })
+      });
+      if (res.ok) {
+        await loadFiles();
+        openFile(name);
+      }
     }
 
     async function openFile(path) {
       activePath = path;
+      $("editorTitle").textContent = path;
       $("welcomeEditor").style.display = "none";
       $("monaco-root").style.display = "block";
-      $("tabs").innerHTML = `<div class="tab active"><span>${path.split('/').pop()}</span> <span onclick="closeFile()" style="opacity:0.5">×</span></div>`;
-      
-      const ext = path.split('.').pop();
-      const lang = { js:'javascript', py:'python', html:'html', css:'css' }[ext] || 'plaintext';
-      
-      const r = await fetch(`/v1/fs/read?path=${encodeURIComponent(path)}`);
-      const data = await r.json();
+      const res = await fetch(`/v1/fs/read?path=${encodeURIComponent(path)}`);
+      const data = await res.json();
+      const ext = path.split(".").pop();
+      const lang = { js: "javascript", ts: "typescript", py: "python", html: "html", css: "css", json: "json", md: "markdown", diff: "diff", patch: "diff" }[ext] || "plaintext";
       monaco.editor.setModelLanguage(editor.getModel(), lang);
-      editor.setValue(data.content);
+      editor.setValue(data.content || "");
     }
 
-    function closeFile() {
-      activePath = null;
-      $("welcomeEditor").style.display = "flex";
-      $("monaco-root").style.display = "none";
-      $("tabs").innerHTML = "";
+    async function saveFile() {
+      if (!activePath || !editor) return;
+      await fetch("/v1/fs/write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: activePath, content: editor.getValue(), overwrite: true })
+      });
+    }
+
+    async function runPreview() {
+      if (!activePath) return;
+      // A primitive IDE run implementation triggering workspace_run in background
+      renderMsg("assistant", "**Executing Project...**\nRunning standard local environment checks. Switch to Magic chat to execute complex terminal builds.");
+      fetch("/v1/command", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: `Run the project related to ${activePath}`, developer_mode: true, app_mode: "sisi" })
+      });
     }
 
     function startNewThread() {
       activeSessionId = null;
       $("chatThread").innerHTML = "";
-      if (currentMode === 'files') {
-        currentMode = 'chat';
-        $("sidebarTitle").textContent = "Conversations";
-        $("itemList").innerHTML = `<div class="item active"><div class="item-title">Magic Sisi Workspace</div><div class="item-sub">Active Session</div></div>`;
-      }
+      renderMsg("assistant", "New Sisi session ready. Ask me to build, inspect, edit, or refactor your workspace.");
     }
 
-    marked.setOptions({
-      highlight: (code, lang) => lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : hljs.highlightAuto(code).value
-    });
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function renderMsg(role, text) {
+      const wrap = document.createElement("div");
+      const meta = document.createElement("div");
+      meta.className = "msg-meta";
+      meta.textContent = role === "user" ? "You" : "Magic Sisi";
+      const body = document.createElement("div");
+      body.className = "msg-body";
+      body.innerHTML = role === "user" ? `<div style="white-space:pre-wrap">${escapeHtml(text)}</div>` : marked.parse(text);
+      if (role === "assistant") {
+        body.querySelectorAll("pre").forEach((pre) => {
+          const code = pre.querySelector("code");
+          if (!code) return;
+
+          const copyBtn = document.createElement("button");
+          copyBtn.className = "copy-btn";
+          copyBtn.textContent = "Copy";
+          copyBtn.onclick = () => {
+            navigator.clipboard.writeText(code.innerText);
+            copyBtn.textContent = "Copied!";
+            setTimeout(() => copyBtn.textContent = "Copy", 2000);
+          };
+          pre.appendChild(copyBtn);
+
+          const button = document.createElement("button");
+          button.className = "inject-btn";
+          button.textContent = "Inject";
+          button.onclick = () => {
+            if (!editor) return;
+            editor.executeEdits("magic", [{ range: editor.getSelection(), text: code.innerText }]);
+          };
+          pre.appendChild(button);
+        });
+      }
+      wrap.appendChild(meta);
+      wrap.appendChild(body);
+      $("chatThread").appendChild(wrap);
+      wrap.querySelectorAll("pre code").forEach((el) => hljs.highlightElement(el));
+      $("chatThread").scrollTop = $("chatThread").scrollHeight;
+    }
 
     async function sendCommand() {
       const input = $("chatInput");
       const text = input.value.trim();
       if (!text || activeController) return;
-      
       renderMsg("user", text);
       input.value = "";
-      
-      const trace = document.createElement("div");
-      trace.className = "msg-header";
-      trace.style.color = "var(--accent)";
-      trace.textContent = "Agent thinking...";
-      $("chatThread").appendChild(trace);
-      $("chatThread").scrollTop = $("chatThread").scrollHeight;
+      input.style.height = "auto";
 
       let fileContext = "";
       if (activePath && editor) {
-        fileContext = `\n\n[CONTEXT: User is viewing/editing ${activePath}]\n\`\`\`\n${editor.getValue()}\n\`\`\``;
+        fileContext = `\n\nCurrent open file: ${activePath}\n\n\`\`\`\n${editor.getValue()}\n\`\`\``;
       }
 
+      const timelineWrap = document.createElement("details");
+      timelineWrap.className = "timeline";
+      timelineWrap.id = "traceWrap";
+      timelineWrap.open = true;
+      timelineWrap.innerHTML = `<summary>Task Trace</summary><ul id="traceList"></ul>`;
+      $("chatThread").appendChild(timelineWrap);
+      $("chatThread").scrollTop = $("chatThread").scrollHeight;
+
+      const typingMsg = document.createElement("div");
+      typingMsg.id = "typingIndicator";
+      typingMsg.innerHTML = `
+        <div class="msg-meta">Magic Sisi</div>
+        <div class="msg-body" style="padding: 14px 18px; display: inline-block;">
+          <div class="typing-indicator">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+        </div>
+      `;
+      $("chatThread").appendChild(typingMsg);
+
+      $("sendBtn").disabled = true;
+      $("cancelBtn").style.display = "inline-flex";
       activeController = new AbortController();
       try {
         const res = await fetch("/v1/command/stream", {
-          method: "POST", headers: {"Content-Type":"application/json"},
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           signal: activeController.signal,
           body: JSON.stringify({
             command: text + fileContext,
             session_id: activeSessionId,
             reasoning_level: $("reasoning").value,
-            developer_mode: true,
+            developer_mode: $("developerMode").checked,
+            approval_mode: $("approvalMode").value,
             app_mode: "sisi"
           })
         });
-
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let buf = ""; let sseEvent = "";
-
+        let buf = "";
+        let sseEvent = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           buf += decoder.decode(value, { stream: true });
-          const lines = buf.split("\n"); buf = lines.pop() || "";
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
           for (const raw of lines) {
             const line = raw.replace(/\r$/, "");
-            if (line.startsWith("event: ")) sseEvent = line.slice(7).trim();
-            else if (line.startsWith("data: ") && sseEvent) {
-              const d = JSON.parse(line.slice(6));
+            if (line.startsWith("event: ")) {
+              sseEvent = line.slice(7).trim();
+            } else if (line.startsWith("data: ") && sseEvent) {
+              const data = JSON.parse(line.slice(6));
               if (sseEvent === "trace") {
-                trace.textContent = `Agent: ${d.step || "Working..."}`;
-                if (d.session_id) activeSessionId = d.session_id;
+                const li = document.createElement("li");
+                li.textContent = data.step;
+                $("traceList").appendChild(li);
+                $("chatThread").scrollTop = $("chatThread").scrollHeight;
+                if (data.session_id) activeSessionId = data.session_id;
+              } else if (sseEvent === "tool") {
+                const text = data.output || "";
+                const writeMatch = text.match(/Wrote (.+)/);
+                const patchMatch = text.match(/Patched (.+)/);
+                if (!window.modifiedFiles) window.modifiedFiles = new Set();
+                if (writeMatch) window.modifiedFiles.add(writeMatch[1].trim());
+                else if (patchMatch) window.modifiedFiles.add(patchMatch[1].trim());
+                updateChangedFilesUI();
+              } else if (sseEvent === "terminal") {
+                const text = data.text || "";
+                $("terminalOutput").textContent += text + "\n";
+                $("terminalOutput").scrollTop = $("terminalOutput").scrollHeight;
               } else if (sseEvent === "final") {
-                trace.remove(); renderMsg("assistant", d.final);
-                if (currentMode === 'files') loadFiles();
+                if ($("traceWrap")) $("traceWrap").open = false;
+                if ($("typingIndicator")) $("typingIndicator").remove();
+                let summary = data.final || "";
+                if (window.modifiedFiles && window.modifiedFiles.size > 0) {
+                  const files = Array.from(window.modifiedFiles);
+                  summary += "\n\n**Files Modified:**\n" + files.map(f => `- \`${f}\``).join("\n");
+                  loadFiles().then(() => openFile(files[files.length - 1]));
+                }
+                renderMsg("assistant", summary);
+
+                if (data.tool_results && data.tool_results.length > 0) {
+                  data.tool_results.forEach(tr => {
+                    if (tr.requires_confirmation) {
+                      const box = document.createElement("div");
+                      box.className = "item";
+                      box.style.borderLeft = "4px solid var(--accent)";
+                      box.innerHTML = `
+                          <strong>Pending: <code>${escapeHtml(tr.tool)}</code></strong>
+                          <span>${escapeHtml(tr.summary || 'Destructive action')}</span>
+                          ${tr.files_changed && tr.files_changed.length > 0 ? `<div style="margin-top:6px; font-size:11px; color:var(--accent);">Files: ${tr.files_changed.join(', ')}</div>` : ''}
+                          <div style="margin-top:8px; font-size: 11px; max-height: 120px; overflow: auto; color: var(--muted); font-family: var(--mono); background: rgba(0,0,0,0.3); padding: 4px; border-radius: 4px;">${escapeHtml(tr.diff ? tr.diff : tr.payload)}</div>
+                          <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="small-btn" style="flex:1; color:#34d399; border-color:#34d399;">Approve</button>
+                            <button class="small-btn" style="flex:1; color:#f87171; border-color:#f87171;">Reject</button>
+                          </div>
+                      `;
+                      const btns = box.querySelectorAll("button");
+                      btns[0].onclick = async () => {
+                        btns[0].disabled = true; btns[1].disabled = true;
+                        await fetch("/v1/tool/execute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tool: tr.tool, payload: tr.payload }) });
+                        if (tr.approval_id) await fetch(`/v1/approvals/${tr.approval_id}/resolve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve" }) });
+                        box.remove();
+                        if ($("approvalsList").children.length === 0) $("approvalsContainer").style.display = "none";
+                        loadFiles();
+                      };
+                      btns[1].onclick = async () => {
+                        if (tr.approval_id) await fetch(`/v1/approvals/${tr.approval_id}/resolve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reject" }) });
+                        box.remove();
+                        if ($("approvalsList").children.length === 0) $("approvalsContainer").style.display = "none";
+                      };
+                      $("approvalsList").appendChild(box);
+                    }
+                  });
+                  if ($("approvalsList").children.length > 0) $("approvalsContainer").style.display = "block";
+                }
+              } else if (sseEvent === "error") {
+                if ($("traceWrap")) $("traceWrap").remove();
+                if ($("typingIndicator")) $("typingIndicator").remove();
+                renderMsg("assistant", data.message || "An unknown error occurred.");
               }
               sseEvent = "";
             }
           }
         }
-      } catch(e) { trace.remove(); if (e.name !== 'AbortError') renderMsg("assistant", "Error: " + e.message); }
-      activeController = null;
-    }
-
-    function renderMsg(role, text) {
-      const wrap = document.createElement("div"); wrap.className = "msg";
-      const head = document.createElement("div"); head.className = "msg-header";
-      head.innerHTML = role === 'user' ? 'YOU' : '<span style="color:var(--accent)">MAGIC SISI</span>';
-      const body = document.createElement("div"); body.className = "msg-body";
-      body.innerHTML = role === 'user' ? `<p style="white-space:pre-wrap">${text}</p>` : marked.parse(text);
-      
-      if (role === 'assistant') {
-        body.querySelectorAll("pre").forEach(pre => {
-          const btn = document.createElement("button");
-          btn.textContent = "Inject Code";
-          btn.style.cssText = "position:absolute; top:8px; right:8px; font-size:10px; padding:4px 8px; background:rgba(59,130,246,0.1); color:var(--accent); border:1px solid var(--accent); border-radius:4px; cursor:pointer;";
-          btn.onclick = () => {
-            if (editor) {
-              editor.executeEdits("magic", [{ range: editor.getSelection(), text: pre.querySelector("code").innerText }]);
-              toast("Code injected!");
-            }
-          };
-          pre.appendChild(btn);
-        });
+      } catch (err) {
+        const traceWrap = $("traceWrap");
+        if (traceWrap) traceWrap.remove();
+        if ($("typingIndicator")) $("typingIndicator").remove();
+        if (err.name !== "AbortError") renderMsg("assistant", `Error: ${err.message}`);
       }
-
-      wrap.appendChild(head); wrap.appendChild(body);
-      $("chatThread").appendChild(wrap);
-      $("chatThread").scrollTop = $("chatThread").scrollHeight;
+      activeController = null;
+      $("sendBtn").disabled = false;
+      $("cancelBtn").style.display = "none";
     }
 
     $("sendBtn").onclick = sendCommand;
-    $("chatInput").onkeydown = e => { if ((e.metaKey||e.ctrlKey) && e.key === "Enter") { e.preventDefault(); sendCommand(); } };
+    $("cancelBtn").onclick = () => {
+      if (!activeController) return;
+      activeController.abort();
+      activeController = null;
+      if (activeSessionId) fetch(`/v1/sessions/${encodeURIComponent(activeSessionId)}/cancel`, { method: "POST" });
+      $("sendBtn").disabled = false;
+      $("cancelBtn").style.display = "none";
+      const traceWrap = $("traceWrap");
+      if (traceWrap) traceWrap.remove();
+      if ($("typingIndicator")) $("typingIndicator").remove();
+      renderMsg("assistant", "_Cancelled._");
+    };
+    $("chatInput").addEventListener("input", (event) => {
+      const target = event.target;
+      target.style.height = "auto";
+      target.style.height = Math.min(target.scrollHeight, 220) + "px";
+    });
+    $("chatInput").onkeydown = (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendCommand();
+      }
+    };
+
+    loadStatus();
+    loadFiles();
+    startNewThread();
   </script>
 </body>
+
 </html>

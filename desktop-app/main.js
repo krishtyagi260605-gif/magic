@@ -17,6 +17,7 @@ const DOCK_ICON = path.join(MAGIC_ROOT, "app", "static", "magic-icon-256.png");
 let serverProc = null;
 /** True only if this process spawned uvicorn (do not kill an API started elsewhere). */
 let serverStartedByUs = false;
+let serverErrorLog = "";
 let mainWindow = null;
 let activePort = DEFAULT_PORT;
 
@@ -65,11 +66,15 @@ function startServer() {
     stdio: ["ignore", "pipe", "pipe"],
   });
   serverStartedByUs = true;
-  serverProc.stdout?.on("data", (d) => console.log(String(d)));
-  serverProc.stderr?.on("data", (d) => console.error(String(d)));
+  serverErrorLog = "";
+  serverProc.stdout?.on("data", (d) => { console.log(String(d)); });
+  serverProc.stderr?.on("data", (d) => {
+    serverErrorLog += String(d);
+    if (serverErrorLog.length > 3000) serverErrorLog = serverErrorLog.slice(-3000);
+    console.error(String(d));
+  });
   serverProc.on("exit", (code) => {
     console.log("Magic server exited", code);
-    serverProc = null;
     serverStartedByUs = false;
   });
 }
@@ -151,8 +156,12 @@ function waitForHealth(timeoutMs = 120000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const tick = async () => {
+      if (serverStartedByUs && serverProc && serverProc.exitCode !== null) {
+        reject(new Error(`Backend service stopped unexpectedly (code ${serverProc.exitCode}).\n\nLogs:\n${serverErrorLog.trim().slice(-600)}`));
+        return;
+      }
       if (Date.now() - start > timeoutMs) {
-        reject(new Error("Timed out waiting for Magic API (check pip install and Ollama)."));
+        reject(new Error("Timed out waiting for Magic API to start."));
         return;
       }
       if (await probeServer(activePort)) {
@@ -183,7 +192,9 @@ function createWindow() {
     minWidth: 980,
     minHeight: 700,
     title: "Magic",
-    backgroundColor: "#0c0a14",
+    backgroundColor: "#050508",
+    vibrancy: process.platform === "darwin" ? "under-window" : undefined,
+    visualEffectState: "active",
     show: false,
     icon: fs.existsSync(APP_ICON) ? APP_ICON : undefined,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : undefined,
@@ -241,8 +252,12 @@ app.whenReady().then(async () => {
   } catch (e) {
     console.error(e);
     dialog.showErrorBox(
-      "Magic server failed to start",
-      `Could not reach ${baseUrl()}/health.\n\n1) cd "${MAGIC_ROOT}"\n2) python3 -m venv .venv && source .venv/bin/activate\n3) pip install -r requirements.txt\n4) Open Ollama app or run: ollama serve\n\n${e}`,
+      "Magic is having trouble starting",
+      "Magic's background service couldn't start. This usually means a missing dependency or API key.\n\n" +
+      "1. Open Terminal in the Magic folder.\n" +
+      "2. Run: source .venv/bin/activate && pip install -r requirements.txt\n" +
+      "3. Check that your .env file has a valid GOOGLE_API_KEY.\n\n" +
+      `Details: ${e.message.split('\n')[0]}`
     );
     app.quit();
     return;
@@ -259,7 +274,7 @@ app.whenReady().then(async () => {
     try {
       const access = systemPreferences.getMediaAccessStatus("microphone");
       if (access !== "granted") {
-        systemPreferences.askForMediaAccess("microphone").catch(() => {});
+        systemPreferences.askForMediaAccess("microphone").catch(() => { });
       }
     } catch {
       /* ignore */

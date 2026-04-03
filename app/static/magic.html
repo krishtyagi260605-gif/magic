@@ -1,414 +1,1159 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Magic Assistant</title>
+  <title>Magic</title>
   <link rel="icon" type="image/svg+xml" href="/static/magic-icon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/diff.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
-  
   <style>
     :root {
-      --bg: #0f172a;
-      --glass: rgba(30, 41, 59, 0.7);
-      --glass-border: rgba(255, 255, 255, 0.1);
-      --accent: #a855f7;
-      --accent-glow: rgba(168, 85, 247, 0.4);
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --radius-lg: 24px;
-      --radius-md: 16px;
-      --font-main: 'Inter', sans-serif;
+      --bg: #0a0d14;
+      --panel: #0f1420;
+      --panel-2: #131a29;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #eef2ff;
+      --muted: #94a3b8;
+      --accent: #74c0fc;
+      --accent-2: #8b5cf6;
+      --mono: "IBM Plex Mono", monospace;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
 
     body {
-      background: radial-gradient(circle at top left, #1e1b4b, #0f172a);
+      background:
+        radial-gradient(circle at top left, rgba(116, 192, 252, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
+        var(--bg);
       color: var(--text);
-      font-family: var(--font-main);
-      display: flex;
-      height: 100vh;
+      font-family: Inter, sans-serif;
+      display: grid;
+      grid-template-columns: 78px 280px 1fr;
       overflow: hidden;
     }
 
-    /* SIDEBAR */
-    .sidebar {
-      width: 280px;
-      background: rgba(15, 23, 42, 0.4);
-      backdrop-filter: blur(20px);
-      border-right: 1px solid var(--glass-border);
+    .rail,
+    .sidebar,
+    .main {
+      min-height: 0;
+    }
+
+    .rail {
+      border-right: 1px solid var(--border);
+      background: rgba(8, 11, 18, 0.82);
       display: flex;
       flex-direction: column;
-      padding: 24px 16px;
-      transition: all 0.3s ease;
+      align-items: center;
+      padding: 18px 0;
+      gap: 14px;
+    }
+
+    .rail button,
+    .icon-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .rail button:hover,
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+
+    .rail button.active {
+      background: rgba(116, 192, 252, 0.12);
+      border-color: rgba(116, 192, 252, 0.25);
+      color: var(--accent);
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 0 12px rgba(116, 192, 252, 0.18));
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: rgba(11, 15, 23, 0.92);
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+      gap: 16px;
     }
 
     .brand {
       display: flex;
-      align-items: center;
       gap: 12px;
-      font-weight: 700;
-      font-size: 1.25rem;
-      margin-bottom: 32px;
-      letter-spacing: -0.025em;
-      color: #fff;
-    }
-    .brand img { width: 32px; height: 32px; filter: drop-shadow(0 0 8px var(--accent-glow)); }
-
-    .nav-btn {
-      display: flex;
       align-items: center;
-      gap: 12px;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--text-muted);
-      padding: 12px 16px;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      font-size: 0.95rem;
-      font-weight: 500;
-      margin-bottom: 8px;
-    }
-    .nav-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: #fff;
-    }
-    .nav-btn.active {
-      background: rgba(168, 85, 247, 0.15);
-      border-color: rgba(168, 85, 247, 0.3);
-      color: var(--accent);
-    }
-    .nav-btn.primary {
-      background: linear-gradient(135deg, #a855f7, #ec4899);
-      color: #fff;
-      margin-bottom: 32px;
-      justify-content: center;
-      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.3);
-    }
-    .nav-btn.primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 24px rgba(168, 85, 247, 0.4);
+      padding-bottom: 8px;
     }
 
-    /* MAIN CONTENT */
-    .main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      position: relative;
+    .brand h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1;
     }
 
-    .chat-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 40px 20px;
-      scroll-behavior: smooth;
-    }
-    .chat-scroll::-webkit-scrollbar { width: 6px; }
-    .chat-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-
-    .chat-container {
-      max-width: 800px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 32px;
-    }
-
-    /* MESSAGES */
-    .msg {
-      display: flex;
-      gap: 20px;
-      animation: msgReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @keyframes msgReveal {
-      from { opacity: 0; transform: translateY(20px) scale(0.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .avatar.user { background: #334155; color: #fff; }
-    .avatar.ai { 
-      background: linear-gradient(135deg, #7c3aed, #db2777); 
-      color: #fff; 
-      box-shadow: 0 0 20px var(--accent-glow);
-    }
-
-    .content {
-      flex: 1;
-      font-size: 15.5px;
-      line-height: 1.7;
-      color: #e2e8f0;
-      padding-top: 2px;
-    }
-    .content p { margin-bottom: 16px; }
-    .content pre {
-      background: #020617;
-      padding: 20px;
-      border-radius: 16px;
-      margin: 20px 0;
-      border: 1px solid var(--glass-border);
-      position: relative;
-      overflow-x: auto;
-    }
-    .content code {
-      font-family: 'Fira Code', monospace;
-      font-size: 13.5px;
-      background: rgba(0,0,0,0.4);
-      padding: 2px 6px;
-      border-radius: 6px;
-      color: #e879f9;
-    }
-    .content pre code { background: transparent; padding: 0; color: inherit; }
-
-    /* INPUT AREA */
-    .input-row {
-      padding: 32px 20px 48px;
-    }
-    .input-container {
-      max-width: 800px;
-      margin: 0 auto;
-      position: relative;
-      background: var(--glass);
-      backdrop-filter: blur(24px);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      padding: 8px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
-      display: flex;
-      align-items: flex-end;
-      gap: 12px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .input-container:focus-within {
-      border-color: rgba(168, 85, 247, 0.5);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 15px var(--accent-glow);
-    }
-
-    textarea {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: #fff;
-      padding: 16px 20px;
-      font-size: 16px;
-      resize: none;
-      min-height: 24px;
-      max-height: 300px;
-      line-height: 1.5;
-    }
-    textarea::placeholder { color: var(--text-muted); }
-
-    .btn-action {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      width: 44px;
-      height: 44px;
-      border-radius: 14px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: 0.2s;
-      flex-shrink: 0;
-      margin: 4px;
-    }
-    .btn-action:hover:not(:disabled) {
-      transform: scale(1.05);
-      background: #c084fc;
-    }
-    .btn-action:disabled { opacity: 0.3; cursor: not-allowed; }
-
-    /* HUD / TRACE */
-    .hud {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid var(--glass-border);
-      padding: 8px 16px;
-      border-radius: 100px;
+    .brand p {
+      margin: 5px 0 0;
+      color: var(--muted);
       font-size: 12px;
-      font-weight: 600;
-      color: var(--accent);
-      display: none;
+      line-height: 1.45;
+    }
+
+    .sidebar-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .sidebar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .new-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 16px;
+      padding: 14px;
+      background: linear-gradient(135deg, #f8d87b, #8be9fd);
+      color: #09111e;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .brain-chip {
+      display: inline-flex;
       align-items: center;
       gap: 8px;
-      backdrop-filter: blur(10px);
-      z-index: 10;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #cbd5e1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 999px;
     }
-    .hud.active { display: flex; }
-    .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { opacity: 1; scale: 1; } 50% { opacity: 0.4; scale: 0.8; } 100% { opacity: 1; scale: 1; } }
 
-    /* WELCOME SCREEN */
-    .welcome {
-      height: 100%;
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .mini-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .mini-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .list {
+      overflow: auto;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 20px;
+      gap: 8px;
     }
-    .welcome h1 { font-size: 3rem; margin-bottom: 12px; letter-spacing: -0.05em; font-weight: 800; }
-    .welcome p { font-size: 1.1rem; color: var(--text-muted); max-width: 400px; line-height: 1.6; }
-    .gradient-text { background: linear-gradient(to right, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    .list-item {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 14px;
+      padding: 11px 12px;
+      cursor: pointer;
+    }
+
+    .list-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .list-item strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .list-item span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 28px 14px;
+      gap: 16px;
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 38px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+    }
+
+    .topbar p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .topchips {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      padding: 10px 13px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      color: #dbe7ff;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .thread-wrap {
+      padding: 0 28px 18px;
+      min-height: 0;
+    }
+
+    .thread-shell {
+      height: 100%;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(19, 26, 41, 0.86), rgba(10, 13, 20, 0.96));
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .thread-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .thread-tools-left,
+    .thread-tools-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .subchip,
+    select.compact {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    select.compact {
+      padding-right: 30px;
+    }
+
+    .thread {
+      overflow: auto;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .message {
+      max-width: 860px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .message.user {
+      margin-left: auto;
+    }
+
+    .message-meta {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .bubble {
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 16px 18px;
+      background: rgba(255, 255, 255, 0.04);
+      line-height: 1.7;
+      font-size: 15px;
+      word-break: break-word;
+    }
+
+    .message.user .bubble {
+      background: rgba(116, 192, 252, 0.09);
+    }
+
+    .bubble pre {
+      overflow: auto;
+      border-radius: 14px;
+      padding: 14px;
+      background: #08101d;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .bubble code {
+      font-family: var(--mono);
+    }
+
+    .bubble table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0;
+    }
+
+    .bubble th,
+    .bubble td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .bubble th {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .bubble pre {
+      position: relative;
+    }
+
+    .composer-wrap {
+      padding: 0 28px 28px;
+    }
+
+    .composer {
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: rgba(15, 20, 32, 0.96);
+      padding: 14px;
+    }
+
+    .composer textarea {
+      width: 100%;
+      resize: none;
+      min-height: 84px;
+      max-height: 260px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+      line-height: 1.65;
+      padding: 8px 10px 2px;
+    }
+
+    .composer textarea::placeholder {
+      color: #7f8da8;
+    }
+
+    .composer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .composer-left,
+    .composer-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .toggle input {
+      accent-color: var(--accent);
+    }
+
+    .send,
+    .soft-btn {
+      border: 0;
+      cursor: pointer;
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .send {
+      background: linear-gradient(135deg, #f8d87b, #8be9fd);
+      color: #0b1020;
+    }
+
+    .soft-btn {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .files-drawer {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 10, 16, 0.82);
+      backdrop-filter: blur(14px);
+      display: none;
+      align-items: stretch;
+      justify-content: center;
+      padding: 28px;
+      z-index: 20;
+    }
+
+    .files-drawer.open {
+      display: flex;
+    }
+
+    .files-shell {
+      width: min(980px, 100%);
+      background: #0d1320;
+      border: 1px solid var(--border);
+      border-radius: 26px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      overflow: hidden;
+      min-height: 70vh;
+    }
+
+    .files-list,
+    .files-preview {
+      min-height: 0;
+    }
+
+    .files-list {
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .files-preview {
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+    }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .drawer-head h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .preview-box {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      overflow: auto;
+      background: rgba(255, 255, 255, 0.03);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 5px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .bubble pre:hover .copy-btn {
+      opacity: 1;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    @media (max-width: 1180px) {
+      body {
+        grid-template-columns: 70px 240px 1fr;
+      }
+
+      .topbar h2 {
+        font-size: 30px;
+      }
+    }
+
+    .trace-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+
+    .trace-card summary {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--accent);
+      background: rgba(0, 0, 0, 0.2);
+      outline: none;
+      list-style: none;
+    }
+
+    .trace-card summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .trace-card-body {
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      white-space: pre-wrap;
+    }
+
+    .approvals-panel {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .timeline {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .timeline summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--accent);
+      outline: none;
+    }
+
+    .timeline ul {
+      margin: 10px 0 0 0;
+      padding-left: 20px;
+    }
+
+    .timeline li {
+      margin-bottom: 6px;
+    }
+
+    .typing-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 20px;
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: typing 1.4s infinite ease-in-out both;
+    }
+
+    .typing-dot:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .typing-dot:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    .typing-dot:nth-child(3) {
+      animation-delay: 0s;
+    }
+
+    @keyframes typing {
+
+      0%,
+      80%,
+      100% {
+        transform: scale(0);
+        opacity: 0.4;
+      }
+
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
   </style>
 </head>
-<body>
-  <div class="sidebar">
-    <div class="brand">
-      <img src="/static/magic-icon.svg" alt="Magic" /> 
-      <span>Magic Assistant</span>
-    </div>
-    
-    <button class="nav-btn primary" onclick="newChat()">
-      <span>+ New Conversation</span>
-    </button>
-    
-    <button class="nav-btn active">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-      Chat Mode
-    </button>
-    
-    <button class="nav-btn" onclick="window.location.href='/sisi'">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-      IDE Mode (Sisi)
-    </button>
 
-    <div style="margin-top: auto;">
-      <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; font-size: 11px; color: var(--text-muted);">
-        Local Intelligence Active
-      </div>
-    </div>
+<body>
+  <div class="rail">
+    <img class="brand-mark" src="/static/magic-icon.svg" alt="Magic" />
+    <button class="active" title="Chat" onclick="focusChat()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    </button>
+    <button id="filesRailBtn" title="Files" onclick="toggleFiles(true)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    </button>
+    <button title="Sisi IDE" onclick="window.location.href='/sisi'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </svg>
+    </button>
   </div>
 
-  <div class="main">
-    <div class="hud" id="hud">
-      <div class="dot"></div>
-      <span id="hudStatus">Thinking...</span>
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="/static/magic-icon.svg" alt="Magic" width="40" height="40" />
+      <div>
+        <h1>Magic</h1>
+        <p>Gemini desktop assistant for chat, code, files, and Mac actions.</p>
+      </div>
     </div>
 
-    <div class="chat-scroll" id="scrollArea">
-      <div class="chat-container" id="chatMsgs">
-        <div class="welcome" id="welcomeScreen">
-          <div style="margin-bottom: 24px;">
-            <img src="/static/magic-icon.svg" style="width: 80px; height: 80px; filter: drop-shadow(0 0 30px rgba(168, 85, 247, 0.4));" />
+    <button class="new-btn" onclick="newChat()">New Conversation</button>
+
+    <div class="sidebar-card">
+      <div class="sidebar-head">
+        <span>Brain</span>
+      </div>
+      <div id="brainChip" class="brain-chip">Loading...</div>
+    </div>
+
+    <div class="sidebar-card">
+      <div class="sidebar-head">
+        <span>Learning</span>
+      </div>
+      <div id="profileChip" class="brain-chip">Loading memory...</div>
+      <div class="quick-actions">
+        <button class="mini-btn" onclick="rememberSomething()">Remember</button>
+        <button class="mini-btn" onclick="saveFeedback()">Feedback</button>
+        <button class="mini-btn" onclick="ingestKnowledge()">Knowledge</button>
+        <button class="mini-btn" onclick="viewMemory()">View Memory</button>
+        <button class="mini-btn" onclick="$('helpModal').classList.add('open')">Help / What's New</button>
+      </div>
+    </div>
+
+    <div class="sidebar-card" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <div class="sidebar-head">
+        <span>Chats</span>
+        <button class="icon-btn" style="width:30px;height:30px;" onclick="loadChats()" title="Refresh">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </button>
+      </div>
+      <div id="chatList" class="list">
+        <div class="muted">No chats yet.</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h2>Magic</h2>
+        <p id="heroSub">Fast answers on Flash. Deep reasoning on Pro. Files and Mac tasks when needed.</p>
+      </div>
+      <div class="topchips">
+        <div id="providerChip" class="chip">Gemini</div>
+        <div id="modeChip" class="chip">Developer on</div>
+        <div id="sessionChip" class="chip">No active session</div>
+      </div>
+    </div>
+
+    <div class="thread-wrap">
+      <div id="approvalsContainer" class="sidebar-card"
+        style="display:none; border-color: var(--accent); margin-bottom: 16px;">
+        <div class="sidebar-head" style="color:var(--accent); font-weight: bold; font-size: 13px;">⚠️ Pending Approvals
+        </div>
+        <div id="approvalsList" class="list"></div>
+      </div>
+      <section class="thread-shell">
+        <div class="thread-tools">
+          <div class="thread-tools-left">
+            <div id="hudStatus" class="subchip">Ready</div>
+            <div id="workspaceChip" class="subchip">Workspace</div>
           </div>
-          <h1>Hello, <span class="gradient-text">I'm Magic.</span></h1>
-          <p>Your local AI companion for desktop automation, code generation, and project management.</p>
+          <div class="thread-tools-right">
+            <button class="soft-btn" style="padding:8px 12px;font-size:12px;" onclick="toggleFiles(true)">Files</button>
+            <button class="soft-btn" style="padding:8px 12px;font-size:12px;"
+              onclick="clearCurrentChat()">Clear</button>
+          </div>
+        </div>
+        <div id="thread" class="thread">
+          <div class="message">
+            <div class="message-meta">Magic</div>
+            <div class="bubble">Your Gemini brain is ready. Ask normally, ask for files, or tell Magic to act on your
+              Mac.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <textarea id="chatInput" placeholder="Message Magic... Press Enter to send"></textarea>
+        <div class="composer-bottom">
+          <div class="composer-left">
+            <select id="reasoning" class="compact">
+              <option value="easy">Easy (Flash)</option>
+              <option value="medium" selected>Medium (Balanced)</option>
+              <option value="high">High (Pro)</option>
+              <option value="extra_high">Max (Deep Pro)</option>
+            </select>
+            <select id="approvalMode" class="compact">
+              <option value="auto_apply">Auto Apply</option>
+              <option value="ask_before_apply" selected>Ask First</option>
+              <option value="preview_only">Preview Only</option>
+            </select>
+            <label class="toggle"><input id="developerMode" type="checkbox" checked /> Developer</label>
+            <button class="soft-btn" id="cancelBtn" style="display:none;">Cancel</button>
+          </div>
+          <div class="composer-right">
+            <button class="send" id="sendBtn">Send</button>
+          </div>
         </div>
       </div>
     </div>
-    
-    <div class="input-row">
-      <div class="input-container">
-        <textarea id="chatInput" placeholder="Message Magic..." rows="1"></textarea>
-        <button id="sendBtn" class="btn-action">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
+
+    <div id="filesDrawer" class="files-drawer">
+      <div class="files-shell">
+        <div class="files-list">
+          <div class="drawer-head">
+            <h3>Workspace Files</h3>
+            <button class="soft-btn" style="padding:8px 12px;font-size:12px;"
+              onclick="toggleFiles(false)">Close</button>
+          </div>
+          <button class="soft-btn" onclick="loadFiles()" style="padding:10px 12px;">Refresh files</button>
+          <div id="filesList" class="list">
+            <div class="muted">Loading files...</div>
+          </div>
+        </div>
+        <div class="files-preview">
+          <div class="drawer-head">
+            <h3 id="previewTitle">Preview</h3>
+            <button class="soft-btn" style="padding:8px 12px;font-size:12px;"
+              onclick="window.location.href='/sisi'">Open in Sisi</button>
+          </div>
+          <div id="previewBox" class="preview-box">Select a file to preview it here.</div>
+        </div>
       </div>
     </div>
-  </div>
+
+    <div id="memoryModal" class="files-drawer">
+      <div class="files-shell" style="grid-template-columns: 1fr; max-width: 650px; min-height: auto;">
+        <div class="files-preview">
+          <div class="drawer-head">
+            <h3>Magic Memory Manager</h3>
+            <button class="soft-btn" style="padding:8px 12px;font-size:12px;"
+              onclick="document.getElementById('memoryModal').classList.remove('open')">Close</button>
+          </div>
+          <div id="memoryContent" class="preview-box" style="white-space: pre-wrap; font-size: 13px;">Loading memory...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="helpModal" class="files-drawer">
+      <div class="files-shell" style="grid-template-columns: 1fr; max-width: 650px; min-height: auto;">
+        <div class="files-preview">
+          <div class="drawer-head">
+            <h3>Help / What's New in V2</h3>
+            <button class="soft-btn" style="padding:8px 12px;font-size:12px;"
+              onclick="$('helpModal').classList.remove('open')">Close</button>
+          </div>
+          <div class="preview-box" style="white-space: pre-wrap; font-size: 13px; border:none; background:transparent;">
+            <strong>Welcome to Magic V2</strong>
+            Magic is a Gemini-powered autonomous desktop agent that runs locally on your Mac.
+
+            ✨ <strong>What's New:</strong>
+            • <strong>Docker Sandboxing:</strong> Python code now executes safely inside a restricted Docker container.
+            • <strong>LangGraph Engine:</strong> Magic plans, executes, and reflects on multiple steps dynamically.
+            • <strong>Approvals:</strong> Unsafe shell commands and code edits pause execution and wait for your
+            Approval.
+            • <strong>RAG Auto-Indexing:</strong> When Magic edits or writes files, it auto-indexes them into its
+            memory.
+            • <strong>Sisi IDE Features:</strong> Right click in Sisi to natively Explain, Fix, or Refactor code.
+
+            🚀 <strong>New Automation Features:</strong>
+            • <strong>WhatsApp:</strong> "Open WhatsApp and say 'Hi' to John and Mike"
+            • <strong>LinkedIn Jobs:</strong> "Apply to software engineer jobs on LinkedIn using my resume.pdf"
+            • <strong>Backend Scaffolding:</strong> "Build a backend site" — Magic will now ask clarifying questions
+            (DB, auth) before generating the project!
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
 
   <script>
-    const $ = id => document.getElementById(id);
-    let activeSessionId = null;
+    const $ = (id) => document.getElementById(id);
     let activeController = null;
+    let activeSessionId = null;
 
     marked.setOptions({
-      highlight: (code, lang) => lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : hljs.highlightAuto(code).value
+      highlight: (code, lang) => lang && hljs.getLanguage(lang)
+        ? hljs.highlight(code, { language: lang }).value
+        : hljs.highlightAuto(code).value
     });
 
-    const input = $("chatInput");
-    input.addEventListener("input", () => {
-      input.style.height = "auto";
-      input.style.height = Math.min(input.scrollHeight, 300) + "px";
-    });
+    async function loadStatus() {
+      try {
+        const res = await fetch("/v1/status");
+        const data = await res.json();
+        const provider = (data.llm?.provider || "unknown").toLowerCase();
+        const model = data.llm?.model || "unknown";
+        const workspaceProjects = data.workspace?.projects ?? 0;
+        $("providerChip").textContent = provider === "google" ? "Gemini active" : provider;
+        $("brainChip").textContent = `${provider} / ${model}`;
+        $("workspaceChip").textContent = `${workspaceProjects} projects in workspace`;
+      } catch (err) {
+        $("providerChip").textContent = "Status unavailable";
+        $("brainChip").textContent = "Could not load runtime status";
+      }
+    }
+
+    async function loadProfile() {
+      try {
+        const res = await fetch("/v1/profile");
+        const data = await res.json();
+        const stats = data.stats || {};
+        $("profileChip").textContent = `${stats.preferences || 0} prefs · ${stats.facts || 0} facts · ${stats.feedback || 0} feedback`;
+        const summary = String(data.summary || "").trim();
+        $("profileChip").title = summary || "No personal memory yet";
+      } catch (err) {
+        $("profileChip").textContent = "Memory unavailable";
+      }
+    }
+
+    async function viewMemory() {
+      try {
+        const res = await fetch("/v1/profile");
+        const data = await res.json();
+        $("memoryContent").textContent = data.summary || "No memory saved yet. Tell Magic to remember things!";
+        $("memoryModal").classList.add("open");
+      } catch (err) {
+        $("memoryContent").textContent = "Failed to load memory.";
+      }
+    }
+
+    async function rememberSomething() {
+      const text = prompt("What should Magic remember?");
+      if (!text || !text.trim()) return;
+      const res = await fetch("/v1/profile/remember", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.trim(), source: "ui" })
+      });
+      if (res.ok) {
+        loadProfile();
+        renderMessage("assistant", `Saved to memory: ${text.trim()}`);
+      }
+    }
+
+    async function saveFeedback() {
+      const text = prompt("What feedback should Magic keep improving from?");
+      if (!text || !text.trim()) return;
+      const res = await fetch("/v1/profile/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.trim() })
+      });
+      if (res.ok) {
+        loadProfile();
+        renderMessage("assistant", `Logged feedback for future improvement: ${text.trim()}`);
+      }
+    }
+
+    async function ingestKnowledge() {
+      const path = prompt("Enter a file or folder path to index into Magic's knowledge base");
+      if (!path || !path.trim()) return;
+      const res = await fetch("/v1/index/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: path.trim(), rebuild: false })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        renderMessage("assistant", `Indexed knowledge from \`${path.trim()}\`.\n\nStatus: ${data.status}\nDocuments: ${data.count}`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        renderMessage("assistant", `Could not index that path.\n\n${data.detail || "Unknown error"}`);
+      }
+    }
+
+    async function loadChats() {
+      try {
+        const res = await fetch("/v1/sessions");
+        const sessions = await res.json();
+        const list = $("chatList");
+        list.innerHTML = "";
+        if (!sessions.length) {
+          list.innerHTML = `<div class="muted">No chats yet.</div>`;
+          return;
+        }
+        sessions.forEach((session) => {
+          const el = document.createElement("div");
+          el.className = "list-item";
+          el.innerHTML = `<strong>${escapeHtml(session.title || "New conversation")}</strong><span>${escapeHtml(session.preview || "No preview yet.")}</span>`;
+          el.onclick = () => openChat(session.id);
+          list.appendChild(el);
+        });
+      } catch (err) {
+        $("chatList").innerHTML = `<div class="muted">Could not load chats.</div>`;
+      }
+    }
+
+    async function openChat(id) {
+      const res = await fetch(`/v1/sessions/${encodeURIComponent(id)}`);
+      const session = await res.json();
+      activeSessionId = session.id;
+      $("sessionChip").textContent = `Session ${session.id.slice(0, 8)}`;
+      $("thread").innerHTML = "";
+      session.turns.forEach((turn) => renderMessage(turn.role, turn.content));
+    }
+
+    function focusChat() {
+      $("chatInput").focus();
+    }
 
     function newChat() {
       activeSessionId = null;
-      $("chatMsgs").innerHTML = $("welcomeScreen").outerHTML;
-    }
-
-    function escapeHtml(s) {
-      const d = document.createElement("div");
-      d.textContent = s;
-      return d.innerHTML;
-    }
-
-    function renderMsg(role, content) {
-      if ($("welcomeScreen")) $("welcomeScreen").remove();
-      const w = document.createElement("div");
-      w.className = "msg";
-      const isUser = role === "user";
-      const htmlContent = isUser
-        ? `<div style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(content)}</div>`
-        : marked.parse(content);
-      
-      w.innerHTML = `
-        <div class="avatar ${isUser ? 'user' : 'ai'}">${isUser ? 'U' : 'M'}</div>
-        <div class="content">${htmlContent}</div>
+      $("sessionChip").textContent = "No active session";
+      $("thread").innerHTML = `
+        <div class="message">
+          <div class="message-meta">Magic</div>
+          <div class="bubble">New chat ready. Ask for an answer, a file change, or a Mac action.</div>
+        </div>
       `;
-      $("chatMsgs").appendChild(w);
-      $("scrollArea").scrollTop = $("scrollArea").scrollHeight;
-      
-      w.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+    }
+
+    async function clearCurrentChat() {
+      if (!activeSessionId) {
+        newChat();
+        return;
+      }
+      await fetch(`/v1/sessions/${encodeURIComponent(activeSessionId)}`, { method: "DELETE" });
+      newChat();
+      loadChats();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function renderMessage(role, content) {
+      const node = document.createElement("div");
+      node.className = `message ${role === "user" ? "user" : ""}`;
+
+      let htmlContent = role === "user" ? `<div style="white-space:pre-wrap">${escapeHtml(content)}</div>` : marked.parse(content);
+
+      node.innerHTML = `
+        <div class="message-meta">${role === "user" ? "You" : "Magic"}</div>
+        <div class="bubble">${htmlContent}</div>
+      `;
+      $("thread").appendChild(node);
+      node.querySelectorAll("pre code").forEach((el) => hljs.highlightElement(el));
+      node.querySelectorAll("pre").forEach((pre) => {
+        const code = pre.querySelector("code");
+        if (!code) return;
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.onclick = () => {
+          navigator.clipboard.writeText(code.innerText);
+          btn.textContent = "Copied!";
+          setTimeout(() => btn.textContent = "Copy", 2000);
+        };
+        pre.appendChild(btn);
+      });
+      $("thread").scrollTop = $("thread").scrollHeight;
+    }
+
+    function renderSources(sources) {
+      if (!sources || sources.length === 0) return;
+      const node = document.createElement("div");
+      node.className = "message";
+      const pills = sources.map(url => {
+        let text = url;
+        if (url.startsWith('http')) {
+          try { text = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { }
+        } else if (url.includes('/')) {
+          text = url.split('/').pop();
+        }
+        return `<a href="${url}" target="_blank" class="chip" style="text-decoration:none;display:inline-flex;align-items:center;margin-right:6px;margin-bottom:6px;background:rgba(116,192,252,0.1);color:var(--accent);border-color:rgba(116,192,252,0.2);font-weight:500;">${text}</a>`;
+      }).join("");
+      node.innerHTML = `<div class="message-meta">Sources</div><div style="margin-top: 4px;">${pills}</div>`;
+      $("thread").appendChild(node);
+    }
+
+    function setWorkingState(working, label = "Working...") {
+      $("hudStatus").textContent = working ? label : "Ready";
+      $("sendBtn").disabled = working;
+      $("cancelBtn").style.display = working ? "inline-flex" : "none";
     }
 
     async function sendChat() {
+      const input = $("chatInput");
       const text = input.value.trim();
       if (!text || activeController) return;
-      
-      renderMsg("user", text);
+
+      renderMessage("user", text);
       input.value = "";
       input.style.height = "auto";
-      $("sendBtn").disabled = true;
-      $("hud").classList.add("active");
-      $("hudStatus").textContent = "Thinking...";
+      setWorkingState(true);
 
-      const typingEnv = document.createElement("div");
-      typingEnv.className = "msg"; typingEnv.id = "typingInd";
-      typingEnv.innerHTML = `<div class="avatar ai">M</div><div class="content" style="color:var(--text-muted); font-style: italic;">Magic is working...</div>`;
-      $("chatMsgs").appendChild(typingEnv);
-      $("scrollArea").scrollTo({ top: $("scrollArea").scrollHeight, behavior: 'smooth' });
+      const timelineWrap = document.createElement("div");
+      timelineWrap.className = "timeline";
+      timelineWrap.id = "workingMsg";
+      timelineWrap.innerHTML = `<div style="font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 8px; padding: 0 4px;">Agent Trace</div><div id="traceList" style="display:flex; flex-direction:column; gap:6px;"></div>`;
+      $("thread").appendChild(timelineWrap);
+      $("thread").scrollTop = $("thread").scrollHeight;
+
+      const typingMsg = document.createElement("div");
+      typingMsg.className = "message";
+      typingMsg.id = "typingIndicator";
+      typingMsg.innerHTML = `
+        <div class="message-meta">Magic</div>
+        <div class="bubble" style="padding: 14px 18px; display: inline-block;">
+          <div class="typing-indicator">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+        </div>
+      `;
+      $("thread").appendChild(typingMsg);
 
       activeController = new AbortController();
-
       try {
         const res = await fetch("/v1/command/stream", {
-          method: "POST", headers: {"Content-Type":"application/json"},
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           signal: activeController.signal,
           body: JSON.stringify({
-            command: text, session_id: activeSessionId,
-            reasoning_level: "medium",
-            developer_mode: true,
+            command: text,
+            session_id: activeSessionId,
+            reasoning_level: $("reasoning").value,
+            developer_mode: $("developerMode").checked,
+            approval_mode: $("approvalMode").value,
             app_mode: "magic"
           })
         });
-
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buf = "";
@@ -420,42 +1165,151 @@
           buf += decoder.decode(value, { stream: true });
           const lines = buf.split("\n");
           buf = lines.pop() || "";
-
           for (const raw of lines) {
             const line = raw.replace(/\r$/, "");
             if (line.startsWith("event: ")) {
               sseEvent = line.slice(7).trim();
             } else if (line.startsWith("data: ") && sseEvent) {
-              let d;
-              try { d = JSON.parse(line.slice(6)); } catch { sseEvent = ""; continue; }
-              
+              const data = JSON.parse(line.slice(6));
               if (sseEvent === "trace") {
-                $("hudStatus").textContent = d.step || "Processing...";
-                if (d.session_id) activeSessionId = d.session_id;
+                $("hudStatus").textContent = data.step || "Working...";
+                const card = document.createElement("details");
+                card.className = "trace-card";
+                card.innerHTML = `<summary>⚡ ${escapeHtml(data.step)}</summary>`;
+                $("traceList").appendChild(card);
+                $("thread").scrollTop = $("thread").scrollHeight;
+                if (data.session_id) {
+                  activeSessionId = data.session_id;
+                  $("sessionChip").textContent = `Session ${activeSessionId.slice(0, 8)}`;
+                }
               } else if (sseEvent === "final") {
-                if ($("typingInd")) $("typingInd").remove();
-                $("hud").classList.remove("active");
-                renderMsg("assistant", d.final || "");
+                if ($("workingMsg")) $("workingMsg").open = false;
+                if ($("typingIndicator")) $("typingIndicator").remove();
+                renderMessage("assistant", data.final || "");
+                loadChats();
+                loadProfile();
+
+                if (data.tool_results && data.tool_results.length > 0) {
+                  data.tool_results.forEach(tr => {
+                    if (tr.requires_confirmation) {
+                      const box = document.createElement("div");
+                      box.className = "bubble";
+                      box.style.marginTop = "10px";
+                      box.style.border = "1px solid var(--accent)";
+                      box.style.background = "rgba(116, 192, 252, 0.05)";
+                      box.innerHTML = `
+                          <div style="font-size: 12px; color: var(--accent); margin-bottom: 6px; font-weight: bold;">⚠️ Approval Required</div>
+                          <code>${escapeHtml(tr.tool)}</code>
+                          <pre style="margin-top:8px; font-size: 11px; max-height: 200px; overflow: auto; background: rgba(0,0,0,0.3);">${escapeHtml(tr.payload)}</pre>
+                          <button class="send" style="margin-top:10px; width: 100%;">Approve & Execute</button>
+                      `;
+                      const btn = box.querySelector("button");
+                      btn.onclick = async () => {
+                        btn.disabled = true;
+                        btn.textContent = "Executing...";
+                        try {
+                          const res = await fetch("/v1/tool/execute", {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ tool: tr.tool, payload: tr.payload })
+                          });
+                          const result = await res.json();
+                          if (result.ok) {
+                            btn.textContent = "Executed successfully"; btn.style.background = "rgba(16, 185, 129, 0.2)"; btn.style.color = "#34d399";
+                          } else {
+                            btn.textContent = "Failed"; btn.style.background = "rgba(239, 68, 68, 0.2)"; btn.style.color = "#f87171"; alert("Execution failed: " + result.output);
+                          }
+                        } catch (e) { btn.textContent = "Error"; alert(e); }
+                      };
+                      $("thread").appendChild(box);
+                      $("thread").scrollTop = $("thread").scrollHeight;
+                    }
+                  });
+                }
               } else if (sseEvent === "error") {
-                if ($("typingInd")) $("typingInd").remove();
-                $("hud").classList.remove("active");
-                renderMsg("assistant", "⚠️ **Error:** " + (d.message || "unknown"));
+                if ($("workingMsg")) $("workingMsg").remove();
+                if ($("typingIndicator")) $("typingIndicator").remove();
+                renderMessage("assistant", data.message || "An unexpected error occurred.");
               }
               sseEvent = "";
             }
           }
         }
-      } catch(e) {
-        if ($("typingInd")) $("typingInd").remove();
-        $("hud").classList.remove("active");
-        if (e.name !== 'AbortError') renderMsg("assistant", "⚠️ **Error:** " + e.message);
+      } catch (err) {
+        if ($("workingMsg")) $("workingMsg").remove();
+        if ($("typingIndicator")) $("typingIndicator").remove();
+        if (err.name !== "AbortError") {
+          renderMessage("assistant", "Magic encountered a connection or processing error. Please try again.");
+        } else {
+          renderMessage("assistant", "_Cancelled._");
+        }
       }
       activeController = null;
-      $("sendBtn").disabled = false;
+      setWorkingState(false);
+    }
+
+    async function loadFiles() {
+      try {
+        const res = await fetch("/v1/fs/list");
+        const data = await res.json();
+        const list = $("filesList");
+        list.innerHTML = "";
+        if (!data.files?.length) {
+          list.innerHTML = `<div class="muted">No files in workspace yet.</div>`;
+          return;
+        }
+        data.files.forEach((file) => {
+          const item = document.createElement("div");
+          item.className = "list-item";
+          item.innerHTML = `<strong>${escapeHtml(file.split("/").pop())}</strong><span>${escapeHtml(file)}</span>`;
+          item.onclick = () => previewFile(file);
+          list.appendChild(item);
+        });
+      } catch (err) {
+        $("filesList").innerHTML = `<div class="muted">Could not load files.</div>`;
+      }
+    }
+
+    async function previewFile(path) {
+      try {
+        const res = await fetch(`/v1/fs/read?path=${encodeURIComponent(path)}`);
+        const data = await res.json();
+        $("previewTitle").textContent = path;
+        $("previewBox").textContent = data.content || "";
+      } catch (err) {
+        $("previewTitle").textContent = path;
+        $("previewBox").textContent = "Could not read file.";
+      }
+    }
+
+    function toggleFiles(open) {
+      $("filesDrawer").classList.toggle("open", open);
+      $("filesRailBtn").classList.toggle("active", open);
+      if (open) loadFiles();
     }
 
     $("sendBtn").onclick = sendChat;
-    input.onkeydown = e => { if ((e.metaKey||e.ctrlKey) && e.key === "Enter") { e.preventDefault(); sendChat(); } };
+    $("cancelBtn").onclick = () => {
+      if (!activeController) return;
+      activeController.abort();
+      activeController = null;
+      setWorkingState(false);
+    };
+    $("chatInput").addEventListener("input", (event) => {
+      const target = event.target;
+      target.style.height = "auto";
+      target.style.height = Math.min(target.scrollHeight, 260) + "px";
+    });
+    $("chatInput").onkeydown = (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendChat();
+      }
+    };
+
+    loadStatus();
+    loadProfile();
+    loadChats();
   </script>
 </body>
+
 </html>

@@ -63,7 +63,10 @@ def _build_index_from_documents(documents: list[Document]) -> VectorStoreIndex:
 
 def load_or_build_index() -> VectorStoreIndex | None:
     global _index
-    configure_llama_global_embeddings()
+    try:
+        configure_llama_global_embeddings()
+    except Exception:  # noqa: BLE001
+        return None
     settings = get_settings()
     persist = _persist_dir()
 
@@ -91,9 +94,13 @@ def load_or_build_index() -> VectorStoreIndex | None:
         if not documents:
             return None
 
-        _index = _build_index_from_documents(documents)
-        _index.storage_context.persist(persist_dir=str(persist))
-        return _index
+        try:
+            _index = _build_index_from_documents(documents)
+            _index.storage_context.persist(persist_dir=str(persist))
+            return _index
+        except Exception:  # noqa: BLE001
+            _index = None
+            return None
 
 
 def get_index() -> VectorStoreIndex | None:
@@ -106,16 +113,28 @@ def query_memory(user_query: str) -> tuple[str, list[str]]:
     index = get_index()
     if index is None:
         return (
-            "(No indexed memory yet. POST /v1/index/ingest or set MAGIC_INDEX_PATHS and restart.)",
+            "I don't have any saved knowledge to search yet. You can add folders or files using the Learning panel.",
             [],
         )
 
-    configure_llama_global_embeddings()
+    try:
+        configure_llama_global_embeddings()
+    except Exception:
+        return (
+            "I couldn't access the knowledge index right now, so I wasn't able to search your saved documents.",
+            [],
+        )
     engine = index.as_query_engine(
         similarity_top_k=settings.rag_top_k,
         response_mode=settings.rag_response_mode,
     )
-    response = engine.query(user_query)
+    try:
+        response = engine.query(user_query)
+    except Exception:
+        return (
+            "I couldn't query the saved knowledge right now. Try again in a moment or rebuild the index.",
+            [],
+        )
     text = str(getattr(response, "response", response) or "").strip() or "(empty response)"
     sources: list[str] = []
     for node in getattr(response, "source_nodes", None) or []:
@@ -140,21 +159,30 @@ def ingest_paths(extra_paths: list[Path] | None = None, rebuild: bool = False) -
             shutil.rmtree(persist)
             persist.mkdir(parents=True, exist_ok=True)
 
-        configure_llama_global_embeddings()
+        try:
+            configure_llama_global_embeddings()
+        except Exception as exc:  # noqa: BLE001
+            return {"status": "error", "count": 0, "message": f"Index setup failed: {exc}"}
         documents = _load_documents_from_paths(paths)
         if not documents:
-            return {"status": "no_documents", "count": 0, "message": "No files found under given paths."}
+            return {"status": "empty", "count": 0, "message": "I couldn't find any readable documents in your index paths."}
 
         if rebuild or not _index_exists_on_disk():
-            idx = _build_index_from_documents(documents)
-            idx.storage_context.persist(persist_dir=str(persist))
-            _index = idx
-            return {"status": "built", "count": len(documents), "persist_dir": str(persist)}
+            try:
+                idx = _build_index_from_documents(documents)
+                idx.storage_context.persist(persist_dir=str(persist))
+                _index = idx
+                return {"status": "built", "count": len(documents), "persist_dir": str(persist)}
+            except Exception as exc:  # noqa: BLE001
+                return {"status": "error", "count": 0, "message": f"Index build failed: {exc}"}
 
         storage_context = StorageContext.from_defaults(persist_dir=str(persist))
-        idx = load_index_from_storage(storage_context)
-        for doc in documents:
-            idx.insert(doc)
-        idx.storage_context.persist(persist_dir=str(persist))
-        _index = idx
-        return {"status": "merged", "count": len(documents), "persist_dir": str(persist)}
+        try:
+            idx = load_index_from_storage(storage_context)
+            for doc in documents:
+                idx.insert(doc)
+            idx.storage_context.persist(persist_dir=str(persist))
+            _index = idx
+            return {"status": "merged", "count": len(documents), "persist_dir": str(persist)}
+        except Exception as exc:  # noqa: BLE001
+            return {"status": "error", "count": 0, "message": f"Index merge failed: {exc}"}

@@ -36,6 +36,21 @@ def is_server_running() -> bool:
 
 def start_server() -> subprocess.Popen:
     py = _venv_python()
+    
+    # Pre-check: is the port already bound by something that isn't us?
+    if not is_server_running():
+        # Check if the port is busy at all (e.g. by another app)
+        try:
+            import socket
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
+                if s.connect_ex(("127.0.0.1", PORT)) == 0:
+                    print(f"Error: Port {PORT} is already in use by another process, but not responding to health checks.")
+                    print("Please close any other apps using this port and try again.")
+                    sys.exit(1)
+        except Exception:
+            pass
+
     print("Starting Magic API…")
     env = {**os.environ, "PYTHONPATH": str(PROJECT_ROOT), "MAGIC_PORT": str(PORT)}
     proc = subprocess.Popen(
@@ -61,10 +76,10 @@ def start_server() -> subprocess.Popen:
             err = b""
             if proc.stderr:
                 err = proc.stderr.read() or b""
-            print("Server exited early:", err.decode("utf-8", errors="replace")[:800])
+            print(f"Server exited early (port {PORT}):\n{err.decode('utf-8', errors='replace')}")
             sys.exit(1)
         time.sleep(0.5)
-    print(f"Timed out waiting for http://127.0.0.1:{PORT}/health — is the port free?")
+    print(f"Timed out waiting for http://127.0.0.1:{PORT}/health — is the port free? (Current PID: {proc.pid})")
     proc.terminate()
     sys.exit(1)
 

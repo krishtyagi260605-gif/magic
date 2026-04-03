@@ -15,15 +15,33 @@ from app.models import ReasoningLevel
 
 LLMProfile = Literal["router", "chat", "action", "synthesis"]
 
+_last_provider_used: str | None = None
+_last_fallback_used: str | None = None
+
+def set_last_providers(provider: str, is_fallback: bool) -> None:
+    global _last_provider_used, _last_fallback_used
+    _last_provider_used = provider
+    if is_fallback:
+        _last_fallback_used = provider
+
+def get_last_providers() -> tuple[str | None, str | None]:
+    return _last_provider_used, _last_fallback_used
 
 def get_llm(
     reasoning_level: ReasoningLevel = "medium",
     *,
     profile: LLMProfile = "action",
+    provider_override: str | None = None,
 ) -> BaseChatModel:
     """Return an LLM tuned for the task. Router is optimized for latency; chat/synthesis for answer quality."""
     settings = get_settings()
-    if settings.llm_provider.lower() == "openai":
+    provider = (provider_override or settings.llm_provider).lower()
+    google_model = settings.google_fast_model
+    if reasoning_level in {"high", "extra_high"} and profile != "router":
+        google_model = settings.google_deep_model or settings.google_model
+    elif settings.google_model:
+        google_model = settings.google_model
+    if provider == "openai":
         if not settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
         if profile == "router":
@@ -46,7 +64,7 @@ def get_llm(
             model_kwargs={"max_tokens": max_out},
         )
 
-    if settings.llm_provider.lower() == "anthropic":
+    if provider == "anthropic":
         if not settings.anthropic_api_key:
             raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic")
         if profile == "router":
@@ -69,7 +87,7 @@ def get_llm(
             max_tokens=max_out,
         )
 
-    if settings.llm_provider.lower() == "groq":
+    if provider == "groq":
         if not settings.groq_api_key:
             raise ValueError("GROQ_API_KEY is required when LLM_PROVIDER=groq")
         if profile == "router":
@@ -89,12 +107,12 @@ def get_llm(
             max_tokens=max_out,
         )
 
-    if settings.llm_provider.lower() == "google":
+    if provider == "google":
         if not settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY is required when LLM_PROVIDER=google")
         if profile == "router":
             return ChatGoogleGenerativeAI(
-                model=settings.google_model,
+                model=settings.google_fast_model or settings.google_model,
                 google_api_key=settings.google_api_key,
                 temperature=0,
                 max_output_tokens=settings.openai_router_max_tokens,
@@ -103,7 +121,7 @@ def get_llm(
             "easy": 1200, "medium": 2200, "high": 3500, "extra_high": 5000,
         }[reasoning_level]
         return ChatGoogleGenerativeAI(
-            model=settings.google_model,
+            model=google_model,
             google_api_key=settings.google_api_key,
             temperature=0.15 if profile == "chat" else 0,
             max_output_tokens=max_out,

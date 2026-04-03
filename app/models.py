@@ -16,9 +16,19 @@ ToolName = Literal[
     "workspace_list",
     "workspace_read",
     "workspace_write",
+    "workspace_patch",
+    "workspace_git",
+    "workspace_archive",
     "project_scaffold",
     "workspace_run",
+    "fetch_url",
+    "execute_python",
+    "browser_action",
+    "search_code",
+    "execute_python_sandbox",
     "final_answer",
+    "send_whatsapp_messages",
+    "linkedin_auto_apply",
 ]
 
 
@@ -40,6 +50,10 @@ class CommandRequest(BaseModel):
         default=True,
         description="Bypasses conservative restrictions if True. Recommended.",
     )
+    approval_mode: Literal["auto_apply", "ask_before_apply", "preview_only"] = Field(
+        default="ask_before_apply",
+        description="Determines if destructive tools execute immediately or require UI approval.",
+    )
     app_mode: Literal["magic", "sisi"] = Field(
         default="magic",
         description="Indicates which app sent the request (chat vs IDE) to optimize system prompts.",
@@ -52,17 +66,68 @@ class ToolCall(BaseModel):
     reason: str = ""
 
 
+class ToolResultModel(BaseModel):
+    ok: bool
+    output: str
+    tool: str = ""
+    summary: str = ""
+    artifacts: list[str] = []
+    files_changed: list[str] = []
+    opened_file: str | None = None
+    preview_url: str | None = None
+    commands_run: list[str] = []
+    run_logs: list[str] = []
+    verification_results: list[str] = []
+    sources: list[str] = []
+    errors: list[str] = []
+    requires_confirmation: bool = False
+    approval_id: str | None = None
+    payload: str | None = None
+    diff: str | None = None
+    metadata: dict = {}
+
+
 class CommandResponse(BaseModel):
     mode: Literal["execute", "dry_run"]
     session_id: str
     user_command: str
     reasoning_level: ReasoningLevel = "easy"
     developer_mode: bool = True
+    intent: str = ""
     plan: list[ToolCall]
     task_trace: list[str] = []
     outputs: list[str]
     final: str
     used_tools: bool = False
+    duration_ms: int = 0
+    files_changed: list[str] = []
+    created_artifacts: list[str] = []
+    opened_file: str | None = None
+    preview_url: str | None = None
+    commands_run: list[str] = []
+    run_logs: list[str] = []
+    verification_results: list[str] = []
+    sources: list[str] = []
+    errors: list[str] = []
+    tool_results: list[ToolResultModel] = []
+    trace_id: str | None = None
+
+
+class ApprovalModel(BaseModel):
+    id: str
+    session_id: str
+    tool: str
+    payload: str
+    summary: str
+    risk_level: str
+    diff: str | None = None
+    files_affected: list[str] = []
+    status: Literal["pending", "approved", "rejected"]
+    created_at: str
+
+
+class ApprovalResolutionRequest(BaseModel):
+    action: Literal["approve", "reject"]
 
 
 class ConversationTurnModel(BaseModel):
